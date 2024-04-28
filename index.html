@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>LordTubeMaster</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <script src="script.js" type="module"></script>
+</head>
+<body>
+    <div id="inp_container">
+        <input type="text" id="video_url" autofocus inputmode="url" spellcheck="false" size="45" placeholder="Enter Youtube/Vimeo URL or ID">
+        <select id="effect">
+            <option value="recode_landmarks">Recode + landmarks</option>
+            <option value="pose_landmarks">Pose landmarks</option>
+            <option value="pixel_sorting">Pixel sorting</option>
+            <option value="bayer_dithering">Bayer dithering</option>
+            <option value="recode_original">Recode original</option>
+        </select>
+    </div>
+    <iframe id="orig_video" allow="autoplay; fullscreen" allowfullscreen></iframe>
+    <div id="out_container">
+        <video id="out_video" autoplay muted playsinline></video>
+        <canvas id="canvas"></canvas>
+    </div>
+</body>
+</html>
