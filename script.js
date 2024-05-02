@@ -28,14 +28,21 @@ function get_video(input_elem) {
     capture()
 }
 
+function yuv2rgb(Y, U, V) {  // https://github.com/pps83/libyuv/blob/master/source/row_common.cc#L1226
+    Y = (Y-16) * 1.164
+    U -= 128
+    V -= 128
+    return [Y + 1.793*V | 0, Y - .213*U - .533*V | 0, Y + 2.112*U | 0]
+}
+
 let lastVideoTime = -1
 
 const effect_funcs = {
     'pose_landmarks': (videoFrame, poseLandmarker, drawingUtils) => {
-        let startTimeMs = performance.now()
+        const startTimeMs = performance.now()
         if (lastVideoTime != videoFrame.timestamp) {
             lastVideoTime = videoFrame.timestamp
-            poseLandmarker.detectForVideo(videoFrame, startTimeMs, (result) => {
+            poseLandmarker.detectForVideo(videoFrame, startTimeMs, result => {
                 for (const landmark of result.landmarks) {
                     drawingUtils.drawConnectors(landmark, PoseLandmarker.POSE_CONNECTIONS, { color: 'lime', lineWidth: 1 })
                     drawingUtils.drawLandmarks(
@@ -54,23 +61,17 @@ const effect_funcs = {
             for (let x = 0; x < W; x++) {
                 const xUV = x >> 1
                 const Y = yuv[x + y*W]
-                const U = yuv[Voffset + xUV + yUV] - 128
-                const V = yuv[Uoffset + xUV + yUV] - 128
+                const U = yuv[Voffset + xUV + yUV]
+                const V = yuv[Uoffset + xUV + yUV]
                 line.push({Y, U, V})
             }
             line.sort((a, b) => (a.Y - b.Y))
             for (let x = 0; x < W; x++) {
                 const {Y, U, V} = line[x]
-                let R = sat(Y + 1.5748*V)
-                let G = sat(Y - 0.4681*V - 0.1873*U)
-                let B = sat(Y + 1.8556*U)
-                rgba[0 + x*4 + y*W*4] = R
-                rgba[1 + x*4 + y*W*4] = G
-                rgba[2 + x*4 + y*W*4] = B
+                ;[rgba[x*4 + y*W*4], rgba[1 + x*4 + y*W*4], rgba[2 + x*4 + y*W*4]] = yuv2rgb(Y, U, V)
                 rgba[3 + x*4 + y*W*4] = 255
             }
         }
-        return rgba
     },
 
     'bayer_dithering': (W, H, stride, Voffset, Uoffset, yuv, rgba) => {
@@ -85,8 +86,8 @@ const effect_funcs = {
             for (let x = 0; x < W; x++) {
                 const xUV = x >> 1
                 const Y = yuv[x + y*W]
-                const U = yuv[Voffset + xUV + yUV] - 128
-                const V = yuv[Uoffset + xUV + yUV] - 128
+                const U = yuv[Voffset + xUV + yUV]
+                const V = yuv[Uoffset + xUV + yUV]
                 let R, G, B
                 if (Y + bayer_r*matrix[y % bayer_n][x % bayer_n] >= threshold) {
                     R = 237
@@ -97,44 +98,30 @@ const effect_funcs = {
                     G = 38
                     B = 63
                 }
-                rgba[0 + x*4 + y*W*4] = R
+                rgba[x*4 + y*W*4] = R
                 rgba[1 + x*4 + y*W*4] = G
                 rgba[2 + x*4 + y*W*4] = B
                 rgba[3 + x*4 + y*W*4] = 255
             }
         }
-        return rgba
     },
 
     'recode_original': (W, H, stride, Voffset, Uoffset, yuv, rgba) => {
         for (let y = 0; y < H; y++) {
             const yUV = (y >> 1) * stride
-            const line = []
             for (let x = 0; x < W; x++) {
                 const xUV = x >> 1
                 const Y = yuv[x + y*W]
-                const U = yuv[Voffset + xUV + yUV] - 128
-                const V = yuv[Uoffset + xUV + yUV] - 128
-                let R = sat(Y + 1.5748*V)
-                let G = sat(Y - 0.4681*V - 0.1873*U)
-                let B = sat(Y + 1.8556*U)
-                rgba[0 + x*4 + y*W*4] = R
-                rgba[1 + x*4 + y*W*4] = G
-                rgba[2 + x*4 + y*W*4] = B
+                const U = yuv[Voffset + xUV + yUV]
+                const V = yuv[Uoffset + xUV + yUV]
+                ;[rgba[x*4 + y*W*4], rgba[1 + x*4 + y*W*4], rgba[2 + x*4 + y*W*4]] = yuv2rgb(Y, U, V)
                 rgba[3 + x*4 + y*W*4] = 255
             }
         }
-        return rgba
     },
 }
 
 effect_funcs['recode_landmarks'] = effect_funcs['recode_original']
-
-function sat(val) {
-  if (val > 255) return 255
-  if (val < 0) return 0
-  return val | 0
-}
 
 let capture_started
 const unsupported = '<p>Not supported by your browser :( Try in Chromium desktop!</p>'
@@ -201,7 +188,7 @@ async function capture() {
             const H = videoFrame.codedHeight
             canvasCtx.clearRect(0, 0, canvas.width, canvas.height)
 
-            let rgba = new Uint8Array(W * H * 4)
+            let rgba = new Uint8ClampedArray(W * H * 4)
             if (effect.value.includes('landmarks')) {
                 canvasCtx.save()
                 effect_funcs['pose_landmarks'](videoFrame, poseLandmarker, drawingUtils)
@@ -214,7 +201,7 @@ async function capture() {
                 const copyResult = await videoFrame.copyTo(yuv)
                 const { stride, offset: Voffset } = copyResult[1]
                 const { offset: Uoffset } = copyResult[2]
-                rgba = effect_funcs[effect.value](W, H, stride, Voffset, Uoffset, yuv, rgba)
+                effect_funcs[effect.value](W, H, stride, Voffset, Uoffset, yuv, rgba, videoFrame, poseLandmarker)
             }
             const init = {
                 codedHeight: H,
