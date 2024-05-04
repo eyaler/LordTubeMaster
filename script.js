@@ -32,8 +32,17 @@ function yuv2rgb(Y, U, V) {  // https://github.com/pps83/libyuv/blob/master/sour
     Y = (Y-16) * 1.164
     U -= 128
     V -= 128
-    return [Y + 1.793*V | 0, Y - .213*U - .533*V | 0, Y + 2.112*U | 0]
+    return [Y + 1.793*V, Y - .213*U - .533*V, Y + 2.112*U]
 }
+
+function is_inside(edges, x, y) {
+    return edges.reduce((cnt, [x1, y1], i) => {
+        const [x2, y2] = edges[(i + 1) % edges.length]
+        return cnt + ((y < y1) != (y < y2) && x < x1 + ((y-y1)/(y2-y1))*(x2-x1))
+    }, 0) % 2 == 1
+}
+
+const colors = ['lime', 'red', 'cyan', 'magenta']
 
 let lastVideoTime = -1
 
@@ -43,13 +52,11 @@ const effect_funcs = {
         if (lastVideoTime != videoFrame.timestamp) {
             lastVideoTime = videoFrame.timestamp
             poseLandmarker.detectForVideo(videoFrame, startTimeMs, result => {
-                for (const landmark of result.landmarks) {
-                    drawingUtils.drawConnectors(landmark, PoseLandmarker.POSE_CONNECTIONS, { color: 'lime', lineWidth: 1 })
-                    drawingUtils.drawLandmarks(
-                        landmark,
-                        { color: 'red', fillColor: 'red', lineWidth: 0, radius: 1 }
-                    )
-                }
+                result.landmarks.forEach((landmarks, i) => {
+                    drawingUtils.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS, { color: colors[i % colors.length], lineWidth: 1 })
+                    const color = colors[(i+1) % colors.length]
+                    drawingUtils.drawLandmarks(landmarks, { color: color, fillColor: color, lineWidth: 0, radius: 1 })
+                })
             })
         }
     },
@@ -103,6 +110,49 @@ const effect_funcs = {
                 rgba[2 + x*4 + y*W*4] = B
                 rgba[3 + x*4 + y*W*4] = 255
             }
+        }
+    },
+
+    'boob_job': (W, H, stride, Voffset, Uoffset, yuv, rgba, videoFrame, poseLandmarker) => {
+        for (let y = 0; y < H; y++) {
+            const yUV = (y >> 1) * stride
+            for (let x = 0; x < W; x++) {
+                const xUV = x >> 1
+                const Y = yuv[x + y*W]
+                const U = yuv[Voffset + xUV + yUV]
+                const V = yuv[Uoffset + xUV + yUV]
+                ;[rgba[x*4 + y*W*4], rgba[1 + x*4 + y*W*4], rgba[2 + x*4 + y*W*4]] = yuv2rgb(Y, U, V)
+                rgba[3 + x*4 + y*W*4] = 255
+            }
+        }
+        const startTimeMs = performance.now()
+        if (lastVideoTime != videoFrame.timestamp) {
+            lastVideoTime = videoFrame.timestamp
+            poseLandmarker.detectForVideo(videoFrame, startTimeMs, result => {
+                result.landmarks.forEach(landmarks => {
+                    const ax = landmarks[11].x * W
+                    const ay = landmarks[11].y * H
+                    const bx = landmarks[12].x * W
+                    const by = landmarks[12].y * H
+                    const cx = (bx+landmarks[24].x*W) / 2
+                    const cy = (by+landmarks[24].y*H) / 2
+                    const dx = (ax+landmarks[23].x*W) / 2
+                    const dy = (ay+landmarks[23].y*H) / 2
+                    const min_x = Math.min(ax, bx, cx, dx)
+                    const max_x = Math.max(ax, bx, cx, dx)
+                    const min_y = Math.min(ay, by, cy, dy)
+                    const max_y = Math.max(ay, by, cy, dy)
+                    const edges = [[ax, ay], [bx, by], [cx, cy], [dx, dy]]
+                    for (let y = min_y | 0; y <= max_y; y++)
+                        for (let x = min_x | 0; x <= max_x; x++)
+                            if (is_inside(edges, x, y)) {
+                                rgba[0 + x*4 + y*W*4] = 255
+                                rgba[1 + x*4 + y*W*4] = 0
+                                rgba[2 + x*4 + y*W*4] = 0
+                                rgba[3 + x*4 + y*W*4] = 255
+                            }
+                })
+            })
         }
     },
 
