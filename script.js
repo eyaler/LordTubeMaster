@@ -47,16 +47,19 @@ const colors = ['lime', 'red', 'cyan', 'magenta']
 let lastVideoTime = -1
 
 const effect_funcs = {
-    'pose_landmarks': (videoFrame, poseLandmarker, drawingUtils) => {
+    'pose_landmarks': (W, H, videoFrame, poseLandmarker, canvasCtx, drawingUtils) => {
         const startTimeMs = performance.now()
         if (lastVideoTime != videoFrame.timestamp) {
             lastVideoTime = videoFrame.timestamp
             poseLandmarker.detectForVideo(videoFrame, startTimeMs, result => {
+                canvasCtx.save()
+                canvasCtx.clearRect(0, 0, W, H)
                 result.landmarks.forEach((landmarks, i) => {
                     drawingUtils.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS, { color: colors[i % colors.length], lineWidth: 1 })
                     const color = colors[(i+1) % colors.length]
                     drawingUtils.drawLandmarks(landmarks, { color: color, fillColor: color, lineWidth: 0, radius: 1 })
                 })
+                canvasCtx.restore()
             })
         }
     },
@@ -236,14 +239,9 @@ async function capture() {
         async transform(videoFrame, controller) {
             const W = videoFrame.codedWidth
             const H = videoFrame.codedHeight
-            canvasCtx.clearRect(0, 0, canvas.width, canvas.height)
-
             let rgba = new Uint8ClampedArray(W * H * 4)
-            if (effect.value.includes('landmarks')) {
-                canvasCtx.save()
-                effect_funcs['pose_landmarks'](videoFrame, poseLandmarker, drawingUtils)
-                canvasCtx.restore()
-            }
+            if (effect.value.includes('landmarks'))
+                effect_funcs['pose_landmarks'](W, H, videoFrame, poseLandmarker, canvasCtx, drawingUtils)
             if (effect.value == 'pose_landmarks')
                 rgba = rgba.map((_, i) => ((i+1) % 4 == 0) * 255)
             else {
