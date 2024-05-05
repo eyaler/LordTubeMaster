@@ -242,6 +242,8 @@ async function capture() {
             let rgba = new Uint8ClampedArray(W * H * 4)
             if (effect.value.includes('landmarks'))
                 effect_funcs['pose_landmarks'](W, H, videoFrame, poseLandmarker, canvasCtx, drawingUtils)
+            else
+                canvasCtx.clearRect(0, 0, W, H)
             if (effect.value == 'pose_landmarks')
                 rgba = rgba.map((_, i) => ((i+1) % 4 == 0) * 255)
             else {
