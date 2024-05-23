@@ -1,5 +1,5 @@
-// Note as of April 2024 this is only supported on Chromium desktop
-// For fullscreen zoom of output, enable: chrome://flags/#element-capture
+// Note as of May 2024 this is only supported on Chromium desktop
+// For fullscreen zoom of output (by right-click), enable: chrome://flags/#element-capture
 
 import {
   PoseLandmarker,
