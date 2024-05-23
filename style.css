@@ -11,6 +11,10 @@ body {
     padding-block: 2rem;
 }
 
+.fullscreen {
+    background-color: canvas !important;
+}
+
 iframe {
     isolation: isolate;
 }
@@ -42,4 +46,14 @@ iframe, #out_container {
     position: absolute;
     top: 0;
     width: 100%;
+}
+
+#out_container > div {
+    align-content: center;
+    font-family: sans-serif;
+}
+
+footer {
+    display: flex;
+    gap: 2em;
 }

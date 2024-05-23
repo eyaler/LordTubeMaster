@@ -177,7 +177,7 @@ const effect_funcs = {
 effect_funcs['recode_landmarks'] = effect_funcs['recode_original']
 
 let capture_started
-const unsupported = '<p>Not supported by your browser :( Try in Chromium desktop!</p>'
+const unsupported = '<div><p>Not supported by your browser :(</p><p>Try in Chromium desktop!</p><div>'
 
 async function capture() {
     if (capture_started)
