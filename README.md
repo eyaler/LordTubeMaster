@@ -3,7 +3,7 @@
 
 Demo: https://eyaler.github.io/LordTubeMaster/
 
-Note as of April 2024 this is only supported on *Chromium desktop*
+Note as of May 2024 this is only supported on *Chromium desktop*
 
 For fullscreen zoom of output (by right-click), enable: `chrome://flags/#element-capture`
 

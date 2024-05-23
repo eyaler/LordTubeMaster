@@ -5,7 +5,7 @@ import {
   PoseLandmarker,
   FilesetResolver,
   DrawingUtils
-} from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.12/vision_bundle.mjs'
+} from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs'
 
 video_url.addEventListener('change', e => get_video(e.currentTarget))
 video_url.addEventListener('keydown', e => {if (e.key == 'Enter' || e.key == 'Tab') get_video(e.currentTarget)})
@@ -218,7 +218,7 @@ async function capture() {
         }
     }
 
-    const vision = await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.12/wasm')
+    const vision = await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm')
     const poseLandmarker = await PoseLandmarker.createFromOptions(
         vision,
         {
@@ -239,11 +239,11 @@ async function capture() {
         async transform(videoFrame, controller) {
             const W = videoFrame.codedWidth
             const H = videoFrame.codedHeight
-            let rgba = new Uint8ClampedArray(W * H * 4)
             if (effect.value.includes('landmarks'))
                 effect_funcs['pose_landmarks'](W, H, videoFrame, poseLandmarker, canvasCtx, drawingUtils)
             else
                 canvasCtx.clearRect(0, 0, W, H)
+            let rgba = new Uint8ClampedArray(W * H * 4)
             if (effect.value == 'pose_landmarks')
                 rgba = rgba.map((_, i) => ((i+1) % 4 == 0) * 255)
             else {
