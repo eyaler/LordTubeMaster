@@ -93,7 +93,6 @@ const effect_funcs = {
     },
 
     'chest_xray': (W, H, stride, Voffset, Uoffset, yuv, rgba, videoFrame, poseLandmarker) => {
-        const orig_rgb = new Uint8ClampedArray(W * H * 3)
         for (let y = 0; y < H; y++) {
             const yUV = (y >> 1) * stride
             for (let x = 0; x < W; x++) {
@@ -102,11 +101,11 @@ const effect_funcs = {
                 const U = yuv[Voffset + xUV + yUV]
                 const V = yuv[Uoffset + xUV + yUV]
                 const offset4 = (x+y*W) * 4
-                const offset3 = (x+y*W) * 3
-                ;[rgba[offset4], rgba[1 + offset4], rgba[2 + offset4]] = [orig_rgb[offset3], orig_rgb[1 + offset3], orig_rgb[2 + offset3]] = yuv2rgb(Y, U, V)
+                ;[rgba[offset4], rgba[1 + offset4], rgba[2 + offset4]] = yuv2rgb(Y, U, V)
                 rgba[3 + offset4] = 255
             }
         }
+        const orig_rgba = new Uint8ClampedArray(rgba)
         const startTimeMs = performance.now()
         if (lastVideoTime != videoFrame.timestamp) {
             lastVideoTime = videoFrame.timestamp
@@ -130,10 +129,9 @@ const effect_funcs = {
                             for (let x = min_x | 0; x <= max_x; x++)
                                 if (is_inside_convex([x, y], vertices)) {
                                     const offset4 = (x+y*W) * 4
-                                    const offset3 = (x+y*W) * 3
-                                    rgba[offset4] = 255 - orig_rgb[offset3]
-                                    rgba[1 + offset4] = 255 - orig_rgb[1 + offset3]
-                                    rgba[2 + offset4] = 255 - orig_rgb[2 + offset3]
+                                    rgba[offset4] = 255 - orig_rgba[offset4]
+                                    rgba[1 + offset4] = 255 - orig_rgba[1 + offset4]
+                                    rgba[2 + offset4] = 255 - orig_rgba[2 + offset4]
                                 }
                     }
                 })
