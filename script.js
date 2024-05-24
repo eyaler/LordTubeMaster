@@ -43,11 +43,31 @@ function yuv2rgb(Y, U, V) {  // https://github.com/pps83/libyuv/blob/master/sour
     return [Y + 1.793*V, Y - .213*U - .533*V, Y + 2.112*U]
 }
 
-function is_inside(edges, x, y) {
-    return edges.reduce((cnt, [x1, y1], i) => {
-        const [x2, y2] = edges[(i + 1) % edges.length]
-        return cnt + ((y < y1) != (y < y2) && x < x1 + ((y-y1)/(y2-y1))*(x2-x1))
-    }, 0) % 2 == 1
+function cross_product(A, B, C) {
+    return (B[0]-A[0])*(C[1]-A[1]) - (B[1]-A[1])*(C[0]-A[0])
+}
+
+function is_convex(A, B, C, D) {
+    const cross1 = cross_product(A, B, C)
+    const cross2 = cross_product(B, C, D)
+    const cross3 = cross_product(C, D, A)
+    const cross4 = cross_product(D, A, B)
+
+    return (cross1 > 0 && cross2 > 0 && cross3 > 0 && cross4 > 0) ||
+           (cross1 < 0 && cross2 < 0 && cross3 < 0 && cross4 < 0)
+}
+
+function is_same_side(P1, P2, A, B) {
+    const cross1 = cross_product(A, B, P1)
+    const cross2 = cross_product(A, B, P2)
+    return cross1 * cross2 >= 0
+}
+
+function is_inside_convex(P, [A, B, C, D]) {
+    return is_same_side(P, C, A, B) &&
+           is_same_side(P, D, B, C) &&
+           is_same_side(P, A, C, D) &&
+           is_same_side(P, B, D, A)
 }
 
 const colors = ['lime', 'red', 'cyan', 'magenta']
@@ -68,6 +88,51 @@ const effect_funcs = {
                     drawingUtils.drawLandmarks(landmarks, { color: color, fillColor: color, lineWidth: 0, radius: 1 })
                 })
                 canvasCtx.restore()
+            })
+        }
+    },
+
+    'chest_xray': (W, H, stride, Voffset, Uoffset, yuv, rgba, videoFrame, poseLandmarker) => {
+        for (let y = 0; y < H; y++) {
+            const yUV = (y >> 1) * stride
+            for (let x = 0; x < W; x++) {
+                const xUV = x >> 1
+                const Y = yuv[x + y*W]
+                const U = yuv[Voffset + xUV + yUV]
+                const V = yuv[Uoffset + xUV + yUV]
+                ;[rgba[x*4 + y*W*4], rgba[1 + x*4 + y*W*4], rgba[2 + x*4 + y*W*4]] = yuv2rgb(Y, U, V)
+                rgba[3 + x*4 + y*W*4] = 255
+            }
+        }
+        const startTimeMs = performance.now()
+        if (lastVideoTime != videoFrame.timestamp) {
+            lastVideoTime = videoFrame.timestamp
+            poseLandmarker.detectForVideo(videoFrame, startTimeMs, result => {
+                result.landmarks.forEach(landmarks => {
+                    if (Math.min(landmarks[11].visibility, landmarks[12].visibility) >= .9 && is_convex([landmarks[11].x, landmarks[11].y], [landmarks[12].x, landmarks[12].y], [landmarks[24].x, landmarks[24].y], [landmarks[23].x, landmarks[23].y])) {
+                        const ax = landmarks[11].x * W
+                        const ay = landmarks[11].y * H
+                        const bx = landmarks[12].x * W
+                        const by = landmarks[12].y * H
+                        const cx = (bx+landmarks[24].x*W) / 2
+                        const cy = (by+landmarks[24].y*H) / 2
+                        const dx = (ax+landmarks[23].x*W) / 2
+                        const dy = (ay+landmarks[23].y*H) / 2
+                        const min_x = Math.min(ax, bx, cx, dx)
+                        const max_x = Math.max(ax, bx, cx, dx)
+                        const min_y = Math.min(ay, by, cy, dy)
+                        const max_y = Math.max(ay, by, cy, dy)
+                        const vertices = [[ax, ay], [bx, by], [cx, cy], [dx, dy]]
+                        for (let y = min_y | 0; y <= max_y; y++)
+                            for (let x = min_x | 0; x <= max_x; x++)
+                                if (is_inside_convex([x, y], vertices)) {
+                                    rgba[0 + x*4 + y*W*4] = 255 - rgba[0 + x*4 + y*W*4]
+                                    rgba[1 + x*4 + y*W*4] = 255 - rgba[1 + x*4 + y*W*4]
+                                    rgba[2 + x*4 + y*W*4] = 255 - rgba[2 + x*4 + y*W*4]
+                                    rgba[3 + x*4 + y*W*4] = 255
+                                }
+                    }
+                })
             })
         }
     },
@@ -121,51 +186,6 @@ const effect_funcs = {
                 rgba[2 + x*4 + y*W*4] = B
                 rgba[3 + x*4 + y*W*4] = 255
             }
-        }
-    },
-
-    'chest_xray': (W, H, stride, Voffset, Uoffset, yuv, rgba, videoFrame, poseLandmarker) => {
-        for (let y = 0; y < H; y++) {
-            const yUV = (y >> 1) * stride
-            for (let x = 0; x < W; x++) {
-                const xUV = x >> 1
-                const Y = yuv[x + y*W]
-                const U = yuv[Voffset + xUV + yUV]
-                const V = yuv[Uoffset + xUV + yUV]
-                ;[rgba[x*4 + y*W*4], rgba[1 + x*4 + y*W*4], rgba[2 + x*4 + y*W*4]] = yuv2rgb(Y, U, V)
-                rgba[3 + x*4 + y*W*4] = 255
-            }
-        }
-        const startTimeMs = performance.now()
-        if (lastVideoTime != videoFrame.timestamp) {
-            lastVideoTime = videoFrame.timestamp
-            poseLandmarker.detectForVideo(videoFrame, startTimeMs, result => {
-                result.landmarks.forEach(landmarks => {
-                    if (Math.min(landmarks[11].visibility, landmarks[12].visibility, landmarks[23].visibility, landmarks[24].visibility) >= .95) {
-                        const ax = landmarks[11].x * W
-                        const ay = landmarks[11].y * H
-                        const bx = landmarks[12].x * W
-                        const by = landmarks[12].y * H
-                        const cx = (bx+landmarks[24].x*W) / 2
-                        const cy = (by+landmarks[24].y*H) / 2
-                        const dx = (ax+landmarks[23].x*W) / 2
-                        const dy = (ay+landmarks[23].y*H) / 2
-                        const min_x = Math.min(ax, bx, cx, dx)
-                        const max_x = Math.max(ax, bx, cx, dx)
-                        const min_y = Math.min(ay, by, cy, dy)
-                        const max_y = Math.max(ay, by, cy, dy)
-                        const edges = [[ax, ay], [bx, by], [cx, cy], [dx, dy]]
-                        for (let y = min_y | 0; y <= max_y; y++)
-                            for (let x = min_x | 0; x <= max_x; x++)
-                                if (is_inside(edges, x, y)) {
-                                    rgba[0 + x*4 + y*W*4] = 255 - rgba[0 + x*4 + y*W*4]
-                                    rgba[1 + x*4 + y*W*4] = 255 - rgba[1 + x*4 + y*W*4]
-                                    rgba[2 + x*4 + y*W*4] = 255 - rgba[2 + x*4 + y*W*4]
-                                    rgba[3 + x*4 + y*W*4] = 255
-                                }
-                    }
-                })
-            })
         }
     },
 
