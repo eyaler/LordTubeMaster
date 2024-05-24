@@ -124,7 +124,7 @@ const effect_funcs = {
         }
     },
 
-    'boob_job': (W, H, stride, Voffset, Uoffset, yuv, rgba, videoFrame, poseLandmarker) => {
+    'chest_xray': (W, H, stride, Voffset, Uoffset, yuv, rgba, videoFrame, poseLandmarker) => {
         for (let y = 0; y < H; y++) {
             const yUV = (y >> 1) * stride
             for (let x = 0; x < W; x++) {
@@ -141,27 +141,29 @@ const effect_funcs = {
             lastVideoTime = videoFrame.timestamp
             poseLandmarker.detectForVideo(videoFrame, startTimeMs, result => {
                 result.landmarks.forEach(landmarks => {
-                    const ax = landmarks[11].x * W
-                    const ay = landmarks[11].y * H
-                    const bx = landmarks[12].x * W
-                    const by = landmarks[12].y * H
-                    const cx = (bx+landmarks[24].x*W) / 2
-                    const cy = (by+landmarks[24].y*H) / 2
-                    const dx = (ax+landmarks[23].x*W) / 2
-                    const dy = (ay+landmarks[23].y*H) / 2
-                    const min_x = Math.min(ax, bx, cx, dx)
-                    const max_x = Math.max(ax, bx, cx, dx)
-                    const min_y = Math.min(ay, by, cy, dy)
-                    const max_y = Math.max(ay, by, cy, dy)
-                    const edges = [[ax, ay], [bx, by], [cx, cy], [dx, dy]]
-                    for (let y = min_y | 0; y <= max_y; y++)
-                        for (let x = min_x | 0; x <= max_x; x++)
-                            if (is_inside(edges, x, y)) {
-                                rgba[0 + x*4 + y*W*4] = 255
-                                rgba[1 + x*4 + y*W*4] = 0
-                                rgba[2 + x*4 + y*W*4] = 0
-                                rgba[3 + x*4 + y*W*4] = 255
-                            }
+                    if (Math.min(landmarks[11].visibility, landmarks[12].visibility, landmarks[23].visibility, landmarks[24].visibility) >= .95) {
+                        const ax = landmarks[11].x * W
+                        const ay = landmarks[11].y * H
+                        const bx = landmarks[12].x * W
+                        const by = landmarks[12].y * H
+                        const cx = (bx+landmarks[24].x*W) / 2
+                        const cy = (by+landmarks[24].y*H) / 2
+                        const dx = (ax+landmarks[23].x*W) / 2
+                        const dy = (ay+landmarks[23].y*H) / 2
+                        const min_x = Math.min(ax, bx, cx, dx)
+                        const max_x = Math.max(ax, bx, cx, dx)
+                        const min_y = Math.min(ay, by, cy, dy)
+                        const max_y = Math.max(ay, by, cy, dy)
+                        const edges = [[ax, ay], [bx, by], [cx, cy], [dx, dy]]
+                        for (let y = min_y | 0; y <= max_y; y++)
+                            for (let x = min_x | 0; x <= max_x; x++)
+                                if (is_inside(edges, x, y)) {
+                                    rgba[0 + x*4 + y*W*4] = 255 - rgba[0 + x*4 + y*W*4]
+                                    rgba[1 + x*4 + y*W*4] = 255 - rgba[1 + x*4 + y*W*4]
+                                    rgba[2 + x*4 + y*W*4] = 255 - rgba[2 + x*4 + y*W*4]
+                                    rgba[3 + x*4 + y*W*4] = 255
+                                }
+                    }
                 })
             })
         }
