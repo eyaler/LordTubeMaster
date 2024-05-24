@@ -93,6 +93,7 @@ const effect_funcs = {
     },
 
     'chest_xray': (W, H, stride, Voffset, Uoffset, yuv, rgba, videoFrame, poseLandmarker) => {
+        const orig_rgb = new Uint8ClampedArray(W * H * 3)
         for (let y = 0; y < H; y++) {
             const yUV = (y >> 1) * stride
             for (let x = 0; x < W; x++) {
@@ -100,8 +101,10 @@ const effect_funcs = {
                 const Y = yuv[x + y*W]
                 const U = yuv[Voffset + xUV + yUV]
                 const V = yuv[Uoffset + xUV + yUV]
-                ;[rgba[x*4 + y*W*4], rgba[1 + x*4 + y*W*4], rgba[2 + x*4 + y*W*4]] = yuv2rgb(Y, U, V)
-                rgba[3 + x*4 + y*W*4] = 255
+                const offset4 = (x+y*W) * 4
+                const offset3 = (x+y*W) * 3
+                ;[rgba[offset4], rgba[1 + offset4], rgba[2 + offset4]] = [orig_rgb[offset3], orig_rgb[1 + offset3], orig_rgb[2 + offset3]] = yuv2rgb(Y, U, V)
+                rgba[3 + offset4] = 255
             }
         }
         const startTimeMs = performance.now()
@@ -126,10 +129,11 @@ const effect_funcs = {
                         for (let y = min_y | 0; y <= max_y; y++)
                             for (let x = min_x | 0; x <= max_x; x++)
                                 if (is_inside_convex([x, y], vertices)) {
-                                    rgba[0 + x*4 + y*W*4] = 255 - rgba[0 + x*4 + y*W*4]
-                                    rgba[1 + x*4 + y*W*4] = 255 - rgba[1 + x*4 + y*W*4]
-                                    rgba[2 + x*4 + y*W*4] = 255 - rgba[2 + x*4 + y*W*4]
-                                    rgba[3 + x*4 + y*W*4] = 255
+                                    const offset4 = (x+y*W) * 4
+                                    const offset3 = (x+y*W) * 3
+                                    rgba[offset4] = 255 - orig_rgb[offset3]
+                                    rgba[1 + offset4] = 255 - orig_rgb[1 + offset3]
+                                    rgba[2 + offset4] = 255 - orig_rgb[2 + offset3]
                                 }
                     }
                 })
@@ -151,8 +155,9 @@ const effect_funcs = {
             line.sort((a, b) => (a.Y - b.Y))
             for (let x = 0; x < W; x++) {
                 const {Y, U, V} = line[x]
-                ;[rgba[x*4 + y*W*4], rgba[1 + x*4 + y*W*4], rgba[2 + x*4 + y*W*4]] = yuv2rgb(Y, U, V)
-                rgba[3 + x*4 + y*W*4] = 255
+                const offset4 = (x+y*W) * 4
+                ;[rgba[offset4], rgba[1 + offset4], rgba[2 + offset4]] = yuv2rgb(Y, U, V)
+                rgba[3 + offset4] = 255
             }
         }
     },
@@ -181,10 +186,11 @@ const effect_funcs = {
                     G = 38
                     B = 63
                 }
-                rgba[x*4 + y*W*4] = R
-                rgba[1 + x*4 + y*W*4] = G
-                rgba[2 + x*4 + y*W*4] = B
-                rgba[3 + x*4 + y*W*4] = 255
+                const offset4 = (x+y*W) * 4
+                rgba[offset4] = R
+                rgba[1 + offset4] = G
+                rgba[2 + offset4] = B
+                rgba[3 + offset4] = 255
             }
         }
     },
@@ -197,8 +203,9 @@ const effect_funcs = {
                 const Y = yuv[x + y*W]
                 const U = yuv[Voffset + xUV + yUV]
                 const V = yuv[Uoffset + xUV + yUV]
-                ;[rgba[x*4 + y*W*4], rgba[1 + x*4 + y*W*4], rgba[2 + x*4 + y*W*4]] = yuv2rgb(Y, U, V)
-                rgba[3 + x*4 + y*W*4] = 255
+                const offset4 = (x+y*W) * 4
+                ;[rgba[offset4], rgba[1 + offset4], rgba[2 + offset4]] = yuv2rgb(Y, U, V)
+                rgba[3 + offset4] = 255
             }
         }
     },
