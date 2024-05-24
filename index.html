@@ -7,7 +7,7 @@
     <link rel="stylesheet" type="text/css" href="style.css">
     <script src="script.js" type="module"></script>
 </head>
-<body>
+<body onload="video_url.value = location.hash.slice(1); video_url.dispatchEvent(new Event('change'))">  <!-- Chromium allows requesting screen capture without user gesture (against the spec). See: https://issues.chromium.org/issues/40177563 -->
     <div id="inp_container">
         <input type="text" id="video_url" autofocus inputmode="url" spellcheck="false" size="45" placeholder="Enter Youtube/Vimeo ID or URL">
         <select id="effect">

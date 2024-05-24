@@ -1,7 +1,7 @@
 # LordTubeMaster
 ### Live YouTube processing in client-side JS using self screen capture
 
-Demo: https://eyaler.github.io/LordTubeMaster/
+Demo: https://eyaler.github.io/LordTubeMaster/#dQw4w9WgXcQ
 
 Note as of May 2024 this is only supported on *Chromium desktop*
 

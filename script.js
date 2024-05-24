@@ -9,23 +9,31 @@ import {
 
 video_url.addEventListener('change', e => get_video(e.currentTarget))
 video_url.addEventListener('keydown', e => {if (e.key == 'Enter' || e.key == 'Tab') get_video(e.currentTarget)})
-video_url.addEventListener('focus', e => {if (e.currentTarget.value) {e.currentTarget.select(); capture()}})
+video_url.addEventListener('focus', e => {if (e.currentTarget.value) capture_select(e.currentTarget)})
 
 function get_video(input_elem) {
     let host = ''
     let vid_id = input_elem.value
     let url = 'about:blank'
+    if (vid_id.includes('/') && !vid_id.includes('//'))
+        vid_id = 'https://' + vid_id
+    let params = vid_id.match(/(#|&|\?t=).+|$/)[0]
+    if (params)
+        vid_id = vid_id.split(params)[0]
     try {
         const input_url = new URL(vid_id)
         host = input_url.hostname
         vid_id = input_url.searchParams.get('v') || input_url.pathname.split('/').at(-1)
     } catch {}
     if (host.includes('vimeo') || vid_id.match(/^\d+$/))
-        url = `https://player.vimeo.com/video/${vid_id}?autoplay=1&byline=0&dnt=1&loop=1&&muted=1&portrait=0&quality=1080p&title=0`
-    else if (vid_id)
-        url = `https://www.youtube-nocookie.com/embed/${vid_id}?autoplay=1&loop=1&playlist=${vid_id}&playsinline=1&rel=0&mute=1`
+        url = `https://player.vimeo.com/video/${vid_id}?autoplay=1&byline=0&dnt=1&loop=1&&muted=1&portrait=0&quality=1080p&title=0${params}`
+    else if (vid_id) {
+        params = params.replace(/[&?]t=(\d+).*/, '&start=$1')
+        url = `https://www.youtube-nocookie.com/embed/${vid_id}?autoplay=1&loop=1&playlist=${vid_id}&playsinline=1&rel=0${params}&mute=1`
+    }
+    location.hash = vid_id + params
     orig_video.src = url
-    capture()
+    capture_select(input_elem)
 }
 
 function yuv2rgb(Y, U, V) {  // https://github.com/pps83/libyuv/blob/master/source/row_common.cc#L1226
@@ -265,6 +273,10 @@ async function capture() {
     })
     const transformed = trackProcessor.readable.pipeThrough(transformer).pipeTo(trackGenerator.writable)
     out_video.srcObject = new MediaStream([trackGenerator])
+}
+
+function capture_select(input_elem) {
+    capture().then(() => input_elem.select())
 }
 
 
