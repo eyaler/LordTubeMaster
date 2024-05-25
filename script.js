@@ -233,7 +233,7 @@ async function capture() {
     try {
         // In Google Chrome, enable chrome://flags/#element-capture - this will enable fullscreen zoom of output
         // See: https://developer.chrome.com/docs/web-platform/element-capture
-        // Note that pinch zoom pauses the stream: https://issuetracker.google.com/issues/337337168
+        // Note that pinch zoom pauses the stream: https://issues.chromium.org/issues/337337168
         const restrictionTarget = await RestrictionTarget.fromElement(orig_video)
         await track.restrictTo(restrictionTarget)
         out_container.oncontextmenu = e => toggle_fullscreen(e)
