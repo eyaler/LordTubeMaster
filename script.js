@@ -1,6 +1,3 @@
-// Note as of May 2024 this is only supported on Chromium desktop
-// For fullscreen zoom of output (by right-click), enable: chrome://flags/#element-capture
-
 import {
   PoseLandmarker,
   FilesetResolver,
@@ -234,7 +231,7 @@ async function capture() {
     const [track] = stream.getVideoTracks()
     track.addEventListener('ended', () => capture_started = false)
     try {
-        // Enable chrome://flags/#element-capture - this will also enable fullscreen zoom of output
+        // In Google Chrome, enable chrome://flags/#element-capture - this will enable fullscreen zoom of output
         // See: https://developer.chrome.com/docs/web-platform/element-capture
         // Note that pinch zoom pauses the stream: https://issuetracker.google.com/issues/337337168
         const restrictionTarget = await RestrictionTarget.fromElement(orig_video)

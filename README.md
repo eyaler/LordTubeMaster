@@ -5,7 +5,7 @@ Demo: https://eyaler.github.io/LordTubeMaster/#dQw4w9WgXcQ
 
 Note as of May 2024 this is only supported on *Chromium desktop*
 
-For fullscreen zoom of output (by right-click), enable: `chrome://flags/#element-capture`
+For fullscreen zoom of output (by right-click) in *Google Chrome*, enable: `chrome://flags/#element-capture`
 
 <br>
 
