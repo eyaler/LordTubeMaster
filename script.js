@@ -1,7 +1,8 @@
 import {
-  PoseLandmarker,
-  FilesetResolver,
-  DrawingUtils
+    PoseLandmarker,
+    ImageSegmenter,
+    FilesetResolver,
+    DrawingUtils
 } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs'
 
 video_url.addEventListener('change', e => get_video(e.currentTarget))
@@ -14,7 +15,7 @@ function get_video(input_elem) {
     let url = 'about:blank'
     if (vid_id.includes('/') && !vid_id.includes('//'))
         vid_id = 'https://' + vid_id
-    let params = vid_id.match(/(#|&|\?t=).+|$/)[0]
+    let params = vid_id.match(/(#|&|\?[^v][^=]*=).+|$/)[0]
     if (params)
         vid_id = vid_id.split(params)[0]
     try {
@@ -89,7 +90,7 @@ const effect_funcs = {
         }
     },
 
-    'chest_xray': (W, H, stride, Voffset, Uoffset, yuv, rgba, videoFrame, poseLandmarker) => {
+    'chest_xray': (W, H, stride, Voffset, Uoffset, yuv, rgba, videoFrame, models) => {
         for (let y = 0; y < H; y++) {
             const yUV = (y >> 1) * stride
             for (let x = 0; x < W; x++) {
@@ -106,7 +107,7 @@ const effect_funcs = {
         const startTimeMs = performance.now()
         if (lastVideoTime != videoFrame.timestamp) {
             lastVideoTime = videoFrame.timestamp
-            poseLandmarker.detectForVideo(videoFrame, startTimeMs, result => {
+            models['pose'].detectForVideo(videoFrame, startTimeMs, result =>
                 result.landmarks.forEach(landmarks => {
                     if (Math.min(landmarks[11].visibility, landmarks[12].visibility) >= .9 && is_convex([landmarks[11].x, landmarks[11].y], [landmarks[12].x, landmarks[12].y], [landmarks[24].x, landmarks[24].y], [landmarks[23].x, landmarks[23].y])) {
                         const ax = landmarks[11].x * W
@@ -132,7 +133,30 @@ const effect_funcs = {
                                 }
                     }
                 })
-            })
+            )
+        }
+    },
+
+    'background_removal': (W, H, stride, Voffset, Uoffset, yuv, rgba, videoFrame, models) => {
+        const startTimeMs = performance.now()
+        if (lastVideoTime != videoFrame.timestamp) {
+            lastVideoTime = videoFrame.timestamp
+            models['segment'].segmentForVideo(videoFrame, startTimeMs, result =>
+                result.confidenceMasks[0].getAsFloat32Array().forEach((conf, offset) => {
+                    if (conf < .5) {
+                        const y = offset / W | 0
+                        const x = offset % W
+                        const yUV = (y >> 1) * stride
+                        const xUV = x >> 1
+                        const Y = yuv[x + y*W]
+                        const U = yuv[Voffset + xUV + yUV]
+                        const V = yuv[Uoffset + xUV + yUV]
+                        const offset4 = offset * 4
+                        ;[rgba[offset4], rgba[1 + offset4], rgba[2 + offset4]] = yuv2rgb(Y, U, V)
+                        rgba[3 + offset4] = 255
+                    }
+                })
+            )
         }
     },
 
@@ -254,13 +278,22 @@ async function capture() {
     const poseLandmarker = await PoseLandmarker.createFromOptions(
         vision,
         {
-          baseOptions: {
-            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
-            delegate: 'GPU'
-          },
-          runningMode: 'VIDEO',
-          numPoses: 2
+            baseOptions: {
+                modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+                delegate: 'GPU'
+            },
+            runningMode: 'VIDEO',
+            numPoses: 2
         })
+    const imageSegmenter = await ImageSegmenter.createFromOptions(
+        vision, {
+            baseOptions: {
+                modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/deeplab_v3/float32/1/deeplab_v3.tflite',
+                delegate: 'GPU'
+            },
+            runningMode: 'VIDEO',
+        })
+    const models = {'pose': poseLandmarker, 'segment': imageSegmenter}
     const canvasCtx = canvas.getContext('2d');
     const drawingUtils = new DrawingUtils(canvasCtx);
 
@@ -283,7 +316,7 @@ async function capture() {
                 const copyResult = await videoFrame.copyTo(yuv)
                 const { stride, offset: Voffset } = copyResult[1]
                 const { offset: Uoffset } = copyResult[2]
-                effect_funcs[effect.value](W, H, stride, Voffset, Uoffset, yuv, rgba, videoFrame, poseLandmarker)
+                effect_funcs[effect.value](W, H, stride, Voffset, Uoffset, yuv, rgba, videoFrame, models)
             }
             const init = {
                 codedHeight: H,
@@ -306,20 +339,16 @@ function capture_select(input_elem) {
 
 // FULLSCREEN
 
-
 let wake_lock
-
 
 function request_wake_lock() {
     navigator.wakeLock?.request('screen').then(lock => wake_lock = lock).catch(e => console.error(e.message))
 }
 
-
 function visibility_change_handler() {
     if (wake_lock && document.visibilityState == 'visible')
         request_wake_lock()
 }
-
 
 function toggle_fullscreen(event_or_elem, landscape=true, elem) {
     if (event_or_elem.preventDefault)
