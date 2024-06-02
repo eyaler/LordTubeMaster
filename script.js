@@ -275,24 +275,34 @@ async function capture() {
     }
 
     const vision = await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm')
+
+    // https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker/web_js
     const poseLandmarker = await PoseLandmarker.createFromOptions(
         vision,
         {
             baseOptions: {
-                modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+                modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task',
+                // modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task',
+                // modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/latest/pose_landmarker_heavy.task',
                 delegate: 'GPU'
             },
             runningMode: 'VIDEO',
-            numPoses: 2
+            numPoses: 2,
+            minPoseDetectionConfidence: .5,
+            minPosePresenceConfidence: .5,
+            minTrackingConfidence: .5,
         })
+
+    // https://ai.google.dev/edge/mediapipe/solutions/vision/image_segmenter/web_js
     const imageSegmenter = await ImageSegmenter.createFromOptions(
         vision, {
             baseOptions: {
-                modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/deeplab_v3/float32/1/deeplab_v3.tflite',
+                modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/deeplab_v3/float32/latest/deeplab_v3.tflite',
                 delegate: 'GPU'
             },
             runningMode: 'VIDEO',
         })
+
     const models = {'pose': poseLandmarker, 'segment': imageSegmenter}
     const canvasCtx = canvas.getContext('2d');
     const drawingUtils = new DrawingUtils(canvasCtx);
