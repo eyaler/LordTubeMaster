@@ -11,25 +11,32 @@ body {
     padding-block: 2rem;
 }
 
+footer {
+    display: flex;
+    gap: 2em;
+}
+
 .fullscreen {
     background-color: canvas !important;
 }
 
 iframe {
+    border: none;
     isolation: isolate;
+    min-height: 0;
 }
 
 iframe, #out_container {
     aspect-ratio: 16 / 9;
     background-color: black;
-    border: none;
-    flex-shrink: 0;
     height: 100%;
-    max-height: 40%;
+    max-height: 50vw;
 }
 
 #inp_container {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 1rem;
 }
 
@@ -51,9 +58,4 @@ iframe, #out_container {
 #out_container > div {
     align-content: center;
     font-family: sans-serif;
-}
-
-footer {
-    display: flex;
-    gap: 2em;
 }

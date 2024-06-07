@@ -5,6 +5,10 @@ import {
     DrawingUtils
 } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs'
 
+import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js'
+import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu@4.20.0/dist/tf-backend-webgpu.min.js'
+import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.20.0/dist/tf-backend-webgl.min.js'
+
 video_url.addEventListener('change', e => get_video(e.currentTarget))
 video_url.addEventListener('keydown', e => {if (e.key == 'Enter' || e.key == 'Tab') get_video(e.currentTarget)})
 video_url.addEventListener('focus', e => {if (e.currentTarget.value) capture_select(e.currentTarget)})
@@ -90,7 +94,7 @@ const effect_funcs = {
         }
     },
 
-    'chest_xray': (W, H, stride, Voffset, Uoffset, yuv, rgba, videoFrame, models) => {
+    'chest_xray': (W, H, stride, Voffset, Uoffset, yuv, rgba, models, videoFrame) => {
         for (let y = 0; y < H; y++) {
             const yUV = (y >> 1) * stride
             for (let x = 0; x < W; x++) {
@@ -99,8 +103,8 @@ const effect_funcs = {
                 const U = yuv[Voffset + xUV + yUV]
                 const V = yuv[Uoffset + xUV + yUV]
                 const offset4 = (x+y*W) * 4
-                ;[rgba[offset4], rgba[1 + offset4], rgba[2 + offset4]] = yuv2rgb(Y, U, V)
-                rgba[3 + offset4] = 255
+                ;[rgba[offset4], rgba[offset4 + 1], rgba[offset4 + 2]] = yuv2rgb(Y, U, V)
+                rgba[offset4 + 3] = 255
             }
         }
         const orig_rgba = new Uint8ClampedArray(rgba)
@@ -128,8 +132,8 @@ const effect_funcs = {
                                 if (is_inside_convex([x, y], vertices)) {
                                     const offset4 = (x+y*W) * 4
                                     rgba[offset4] = 255 - orig_rgba[offset4]
-                                    rgba[1 + offset4] = 255 - orig_rgba[1 + offset4]
-                                    rgba[2 + offset4] = 255 - orig_rgba[2 + offset4]
+                                    rgba[offset4 + 1] = 255 - orig_rgba[offset4 + 1]
+                                    rgba[offset4 + 2] = 255 - orig_rgba[offset4 + 2]
                                 }
                     }
                 })
@@ -137,7 +141,7 @@ const effect_funcs = {
         }
     },
 
-    'background_removal': (W, H, stride, Voffset, Uoffset, yuv, rgba, videoFrame, models) => {
+    'background_removal': (W, H, stride, Voffset, Uoffset, yuv, rgba, models, videoFrame) => {
         const startTimeMs = performance.now()
         if (lastVideoTime != videoFrame.timestamp) {
             lastVideoTime = videoFrame.timestamp
@@ -152,12 +156,52 @@ const effect_funcs = {
                         const U = yuv[Voffset + xUV + yUV]
                         const V = yuv[Uoffset + xUV + yUV]
                         const offset4 = offset * 4
-                        ;[rgba[offset4], rgba[1 + offset4], rgba[2 + offset4]] = yuv2rgb(Y, U, V)
-                        rgba[3 + offset4] = 255
+                        ;[rgba[offset4], rgba[offset4 + 1], rgba[offset4 + 2]] = yuv2rgb(Y, U, V)
+                        rgba[offset4 + 3] = 255
                     }
                 })
             )
         }
+    },
+
+    'cartoonization': (W, H, stride, Voffset, Uoffset, yuv, rgba, models, videoFrame) => {
+        let rgb = new Float32Array(W * H * 3)
+        for (let y = 0; y < H; y++) {
+            const yUV = (y >> 1) * stride
+            for (let x = 0; x < W; x++) {
+                const xUV = x >> 1
+                const Y = yuv[x + y*W]
+                const U = yuv[Voffset + xUV + yUV]
+                const V = yuv[Uoffset + xUV + yUV]
+                const offset3 = (x+y*W) * 3
+                const [R, G, B] = yuv2rgb(Y, U, V)
+                rgb[offset3] = R
+                rgb[offset3 + 1] = G
+                rgb[offset3 + 2] = B
+            }
+        }
+
+        tf.tidy(() => {
+            rgb = models['cartoon'].execute(tf.tensor4d(rgb, [1, H, W, 3])
+                                              .resizeBilinear([720, 720])
+                                              .div(127.5)
+                                              .sub(1))
+                                   .add(1)
+                                   .mul(127.5)
+                                   .cast('int32')
+                                   .resizeBilinear([H, W])
+                                   .dataSync()
+        })
+
+        for (let y = 0; y < H; y++)
+            for (let x = 0; x < W; x++) {
+                const offset3 = (x+y*W) * 3
+                const offset4 = (x+y*W) * 4
+                rgba[offset4] = rgb[offset3]
+                rgba[offset4 + 1] = rgb[offset3 + 1]
+                rgba[offset4 + 2] = rgb[offset3 + 2]
+                rgba[offset4 + 3] = 255
+            }
     },
 
     'pixel_sorting': (W, H, stride, Voffset, Uoffset, yuv, rgba) => {
@@ -175,18 +219,19 @@ const effect_funcs = {
             for (let x = 0; x < W; x++) {
                 const {Y, U, V} = line[x]
                 const offset4 = (x+y*W) * 4
-                ;[rgba[offset4], rgba[1 + offset4], rgba[2 + offset4]] = yuv2rgb(Y, U, V)
-                rgba[3 + offset4] = 255
+                ;[rgba[offset4], rgba[offset4 + 1], rgba[offset4 + 2]] = yuv2rgb(Y, U, V)
+                rgba[offset4 + 3] = 255
             }
         }
     },
 
     'bayer_dithering': (W, H, stride, Voffset, Uoffset, yuv, rgba) => {
-        const bayer_r = 128
-        const threshold = 128
-        const matrix =
-             [[ -0.5 ,  0    ],
-              [  0.25, -0.25 ]]
+        const bayer_r = 96
+        const threshold = 144
+        const matrix = [[ -0.5   ,  0     , -0.375 ,  0.125  ],
+                        [  0.25  , -0.25  ,  0.375 , -0.125  ],
+                        [ -0.3125,  0.1875, -0.4375,  0.0625 ],
+                        [  0.4375, -0.0625,  0.3125, -0.1875 ]]
         const bayer_n = matrix.length
         for (let y = 0; y < H; y++) {
             const yUV = (y >> 1) * stride
@@ -207,9 +252,9 @@ const effect_funcs = {
                 }
                 const offset4 = (x+y*W) * 4
                 rgba[offset4] = R
-                rgba[1 + offset4] = G
-                rgba[2 + offset4] = B
-                rgba[3 + offset4] = 255
+                rgba[offset4 + 1] = G
+                rgba[offset4 + 2] = B
+                rgba[offset4 + 3] = 255
             }
         }
     },
@@ -223,8 +268,8 @@ const effect_funcs = {
                 const U = yuv[Voffset + xUV + yUV]
                 const V = yuv[Uoffset + xUV + yUV]
                 const offset4 = (x+y*W) * 4
-                ;[rgba[offset4], rgba[1 + offset4], rgba[2 + offset4]] = yuv2rgb(Y, U, V)
-                rgba[3 + offset4] = 255
+                ;[rgba[offset4], rgba[offset4 + 1], rgba[offset4 + 2]] = yuv2rgb(Y, U, V)
+                rgba[offset4 + 3] = 255
             }
         }
     },
@@ -233,7 +278,7 @@ const effect_funcs = {
 effect_funcs['recode_landmarks'] = effect_funcs['recode_original']
 
 let capture_started
-const unsupported = '<div><p>Not supported by your browser :(</p><p>Try in Chromium desktop!</p><div>'
+const unsupported_message = '<div><p>Not supported by your browser :(</p><p>Try in Chromium desktop!</p><div>'
 
 async function capture() {
     if (capture_started)
@@ -245,11 +290,13 @@ async function capture() {
             preferCurrentTab: true
         })
     } catch (e) {
-        console.error(e)
-        if (e instanceof TypeError)
-            out_video.outerHTML = unsupported
-        else
+        if (e instanceof TypeError) {
+            console.error(e)
+            out_video.outerHTML = unsupported_message
+        } else {
+            console.warn(e)
             capture_started = false
+        }
         return
     }
     const [track] = stream.getVideoTracks()
@@ -263,13 +310,13 @@ async function capture() {
         out_container.oncontextmenu = e => toggle_fullscreen(e)
         out_container.title = 'Right-click to enter/exit fullscreen'
     } catch (e) {
-        console.error(e)
+        console.warn(e)
         try {
             const cropTarget = await CropTarget.fromElement(orig_video)
             await track.cropTo(cropTarget)
         } catch (e){
             console.error(e)
-            out_video.outerHTML = unsupported
+            out_video.outerHTML = unsupported_message
             return
         }
     }
@@ -303,9 +350,20 @@ async function capture() {
             runningMode: 'VIDEO',
         })
 
-    const models = {'pose': poseLandmarker, 'segment': imageSegmenter}
-    const canvasCtx = canvas.getContext('2d');
-    const drawingUtils = new DrawingUtils(canvasCtx);
+    try {
+        await tf.setBackend('webgpu')
+    } catch (e) {
+        console.warn(e)
+        await tf.setBackend('webgl')
+    }
+
+    // https://github.com/SystemErrorWang/White-box-Cartoonization
+    // https://github.com/vladmandic/anime
+    const cartoon = await tf.loadGraphModel('cartoon/whitebox.json')
+
+    const models = {'pose': poseLandmarker, 'segment': imageSegmenter, 'cartoon': cartoon}
+    const canvasCtx = canvas.getContext('2d')
+    const drawingUtils = new DrawingUtils(canvasCtx)
 
     const trackProcessor = new MediaStreamTrackProcessor({ track: track })
     const trackGenerator = new MediaStreamTrackGenerator({ kind: 'video' })
@@ -326,7 +384,7 @@ async function capture() {
                 const copyResult = await videoFrame.copyTo(yuv)
                 const { stride, offset: Voffset } = copyResult[1]
                 const { offset: Uoffset } = copyResult[2]
-                effect_funcs[effect.value](W, H, stride, Voffset, Uoffset, yuv, rgba, videoFrame, models)
+                effect_funcs[effect.value](W, H, stride, Voffset, Uoffset, yuv, rgba, models, videoFrame)
             }
             const init = {
                 codedHeight: H,
@@ -352,7 +410,7 @@ function capture_select(input_elem) {
 let wake_lock
 
 function request_wake_lock() {
-    navigator.wakeLock?.request('screen').then(lock => wake_lock = lock).catch(e => console.error(e.message))
+    navigator.wakeLock?.request('screen').then(lock => wake_lock = lock).catch(e => console.warn(e.message))
 }
 
 function visibility_change_handler() {
@@ -371,14 +429,14 @@ function toggle_fullscreen(event_or_elem, landscape=true, elem) {
             elem.addEventListener('fullscreenchange', () => {
                 if (elem.classList.toggle('fullscreen')) {
                     if (landscape)
-                        screen.orientation.lock('landscape').catch(e => console.error(e.message))  // Works only in Chrome Android. See: https://bugzilla.mozilla.org/show_bug.cgi?id=1744125
+                        screen.orientation.lock('landscape').catch(e => console.warn(e.message))  // Works only in Chrome Android. See: https://bugzilla.mozilla.org/show_bug.cgi?id=1744125
                     request_wake_lock()
                     document.addEventListener('visibilitychange', visibility_change_handler)
                 } else
                     wake_lock?.release().then(() => wake_lock = null)
             })
         }
-        elem.requestFullscreen({navigationUI: 'hide'}).catch(e => console.error(e.message))
+        elem.requestFullscreen({navigationUI: 'hide'}).catch(e => console.warn(e.message))
     } else
         document.exitFullscreen()
     return was_not_fullscreen_before
