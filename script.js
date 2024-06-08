@@ -7,7 +7,13 @@ import {
 
 import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js'
 import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu@4.20.0/dist/tf-backend-webgpu.min.js'
-import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.20.0/dist/tf-backend-webgl.min.js'
+
+if (typeof CropTarget === 'undefined' ||
+    typeof navigator.mediaDevices.getDisplayMedia === 'undefined' ||
+    typeof MediaStreamTrackProcessor === 'undefined' ||
+    typeof MediaStreamTrackGenerator === 'undefined' ||
+    typeof VideoFrame === 'undefined')
+    out_video.outerHTML = '<div><p>Not supported by your browser :(</p><p>Try in Chromium desktop!</p><div>'
 
 video_url.addEventListener('change', e => get_video(e.currentTarget))
 video_url.addEventListener('keydown', e => {if (e.key == 'Enter' || e.key == 'Tab') get_video(e.currentTarget)})
@@ -164,7 +170,7 @@ const effect_funcs = {
         }
     },
 
-    'cartoonization': (W, H, stride, Voffset, Uoffset, yuv, rgba, models, videoFrame) => {
+    'cartoonization': (W, H, stride, Voffset, Uoffset, yuv, rgba, models, videoFrame, canvas) => {
         let rgb = new Float32Array(W * H * 3)
         for (let y = 0; y < H; y++) {
             const yUV = (y >> 1) * stride
@@ -183,25 +189,15 @@ const effect_funcs = {
 
         tf.tidy(() => {
             rgb = models['cartoon'].execute(tf.tensor4d(rgb, [1, H, W, 3])
-                                              .resizeBilinear([720, 720])
-                                              .div(127.5)
-                                              .sub(1))
-                                   .add(1)
-                                   .mul(127.5)
-                                   .cast('int32')
-                                   .resizeBilinear([H, W])
-                                   .dataSync()
+                                  .resizeBilinear([720, 720])
+                                  .div(127.5)
+                                  .sub(1))
+                       .squeeze()
+                       .resizeBilinear([H, W])
+                       .add(1)
+                       .div(2)
+            tf.browser.draw(rgb, canvas)
         })
-
-        for (let y = 0; y < H; y++)
-            for (let x = 0; x < W; x++) {
-                const offset3 = (x+y*W) * 3
-                const offset4 = (x+y*W) * 4
-                rgba[offset4] = rgb[offset3]
-                rgba[offset4 + 1] = rgb[offset3 + 1]
-                rgba[offset4 + 2] = rgb[offset3 + 2]
-                rgba[offset4 + 3] = 255
-            }
     },
 
     'pixel_sorting': (W, H, stride, Voffset, Uoffset, yuv, rgba) => {
@@ -278,7 +274,6 @@ const effect_funcs = {
 effect_funcs['recode_landmarks'] = effect_funcs['recode_original']
 
 let capture_started
-const unsupported_message = '<div><p>Not supported by your browser :(</p><p>Try in Chromium desktop!</p><div>'
 
 async function capture() {
     if (capture_started)
@@ -290,18 +285,13 @@ async function capture() {
             preferCurrentTab: true
         })
     } catch (e) {
-        if (e instanceof TypeError) {
-            console.error(e)
-            out_video.outerHTML = unsupported_message
-        } else {
-            console.warn(e)
-            capture_started = false
-        }
+        console.warn(e)
+        capture_started = false
         return
     }
     const [track] = stream.getVideoTracks()
     track.addEventListener('ended', () => capture_started = false)
-    try {
+    if (typeof RestrictionTarget !== 'undefined') {
         // In Google Chrome, enable chrome://flags/#element-capture - this will enable fullscreen zoom of output
         // See: https://developer.chrome.com/docs/web-platform/element-capture
         // Note that pinch zoom pauses the stream: https://issues.chromium.org/issues/337337168
@@ -309,16 +299,9 @@ async function capture() {
         await track.restrictTo(restrictionTarget)
         out_container.oncontextmenu = e => toggle_fullscreen(e)
         out_container.title = 'Right-click to enter/exit fullscreen'
-    } catch (e) {
-        console.warn(e)
-        try {
-            const cropTarget = await CropTarget.fromElement(orig_video)
-            await track.cropTo(cropTarget)
-        } catch (e){
-            console.error(e)
-            out_video.outerHTML = unsupported_message
-            return
-        }
+    } else {
+        const cropTarget = await CropTarget.fromElement(orig_video)
+        await track.cropTo(cropTarget)
     }
 
     const vision = await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm')
@@ -384,7 +367,7 @@ async function capture() {
                 const copyResult = await videoFrame.copyTo(yuv)
                 const { stride, offset: Voffset } = copyResult[1]
                 const { offset: Uoffset } = copyResult[2]
-                effect_funcs[effect.value](W, H, stride, Voffset, Uoffset, yuv, rgba, models, videoFrame)
+                effect_funcs[effect.value](W, H, stride, Voffset, Uoffset, yuv, rgba, models, videoFrame, canvas)
             }
             const init = {
                 codedHeight: H,
