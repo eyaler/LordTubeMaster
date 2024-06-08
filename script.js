@@ -83,17 +83,17 @@ const colors = ['lime', 'red', 'cyan', 'magenta']
 let lastVideoTime = -1
 
 const effect_funcs = {
-    'pose_landmarks': (W, H, videoFrame, poseLandmarker, canvasCtx, drawingUtils) => {
+    'pose_landmarks': (videoFrame, poseLandmarker, canvasCtx, drawingUtils) => {
         const startTimeMs = performance.now()
         if (lastVideoTime != videoFrame.timestamp) {
             lastVideoTime = videoFrame.timestamp
             poseLandmarker.detectForVideo(videoFrame, startTimeMs, result => {
                 canvasCtx.save()
-                canvasCtx.clearRect(0, 0, W, H)
+                canvasCtx.clearRect(0, 0, canvasCtx.canvas.width, canvasCtx.canvas.height)
                 result.landmarks.forEach((landmarks, i) => {
-                    drawingUtils.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS, { color: colors[i % colors.length], lineWidth: 1 })
+                    drawingUtils.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS, { color: colors[i % colors.length], lineWidth: 5 })
                     const color = colors[(i+1) % colors.length]
-                    drawingUtils.drawLandmarks(landmarks, { color: color, fillColor: color, lineWidth: 0, radius: 1 })
+                    drawingUtils.drawLandmarks(landmarks, { color: color, fillColor: color, lineWidth: 0, radius: 5 })
                 })
                 canvasCtx.restore()
             })
@@ -345,6 +345,8 @@ async function capture() {
     const cartoon = await tf.loadGraphModel('cartoon/whitebox.json')
 
     const models = {'pose': poseLandmarker, 'segment': imageSegmenter, 'cartoon': cartoon}
+    canvas.width = 1920
+    canvas.height = 1080
     const canvasCtx = canvas.getContext('2d')
     const drawingUtils = new DrawingUtils(canvasCtx)
 
@@ -356,9 +358,9 @@ async function capture() {
             const W = videoFrame.codedWidth
             const H = videoFrame.codedHeight
             if (effect.value.includes('landmarks'))
-                effect_funcs['pose_landmarks'](W, H, videoFrame, poseLandmarker, canvasCtx, drawingUtils)
+                effect_funcs['pose_landmarks'](videoFrame, poseLandmarker, canvasCtx, drawingUtils)
             else
-                canvasCtx.clearRect(0, 0, W, H)
+                canvasCtx.clearRect(0, 0, canvas.width, canvas.height)
             let rgba = new Uint8ClampedArray(W * H * 4)
             if (effect.value == 'pose_landmarks')
                 rgba = rgba.map((_, i) => ((i+1) % 4 == 0) * 255)
