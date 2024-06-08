@@ -193,7 +193,6 @@ const effect_funcs = {
                                   .div(127.5)
                                   .sub(1))
                        .squeeze()
-                       .resizeBilinear([H, W])
                        .add(1)
                        .div(2)
             tf.browser.draw(rgb, canvas)
