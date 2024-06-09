@@ -11,13 +11,7 @@ import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu@4.20.0/dist
 function getGPUInfo() {
   const gl = document.createElement('canvas').getContext('webgl')
   const ext = gl.getExtension('WEBGL_debug_renderer_info')
-  return ext ? {
-    vendor: gl.getParameter(ext.UNMASKED_VENDOR_WEBGL),
-    renderer: gl.getParameter(ext.UNMASKED_RENDERER_WEBGL),
-  } : {
-    vendor: 'unknown',
-    renderer: 'unknown',
-  }
+  return ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : 'GPU unknown'
 }
 console.log(getGPUInfo())
 
@@ -346,17 +340,20 @@ async function capture() {
             runningMode: 'VIDEO',
         })
 
+    let queue, cartoon
     try {
         await tf.setBackend('webgpu')
+        queue = tf.backend().queue
+
+        // https://github.com/SystemErrorWang/White-box-Cartoonization
+        // https://github.com/vladmandic/anime
+        cartoon = await tf.loadGraphModel('cartoon/whitebox.json')
     } catch (e) {
         console.warn(e)
-        await tf.setBackend('webgl')
+        effect.querySelectorAll('[value*=webgpu]').forEach(e => e.disabled = true)
+        if (effect.value.disabled)
+            effect.value = effect.querySelector(':not([value*=webgpu])').value
     }
-    const queue = tf.backend().queue
-
-    // https://github.com/SystemErrorWang/White-box-Cartoonization
-    // https://github.com/vladmandic/anime
-    const cartoon = await tf.loadGraphModel('cartoon/whitebox.json')
 
     const models = {'pose': poseLandmarker, 'segment': imageSegmenter, 'cartoon': cartoon}
     const canvasCtx = canvas.getContext('2d')
@@ -383,7 +380,7 @@ async function capture() {
                 const { offset: Uoffset } = copyResult[2]
                 effect_funcs[effect.value](W, H, stride, Voffset, Uoffset, yuv, rgba, models, videoFrame)
                 if (effect.value.includes('webgpu'))
-                    await queue.onSubmittedWorkDone()
+                    await queue.onSubmittedWorkDone()  // This reduces lag. See also: https://github.com/tensorflow/tfjs/issues/6683#issuecomment-1219505611 , https://github.com/tensorflow/tfjs/issues/7800
             }
             const init = {
                 codedHeight: H,

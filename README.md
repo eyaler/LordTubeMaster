@@ -8,7 +8,8 @@ Note as of June 2024 this is only supported on *Chromium desktop*.
 Enable graphics/hardware acceleration browser setting to reduce lag.
 Specifically for the WebGPU example - make sure you are using a discrete GPU.
 
-For fullscreen zoom of output (by right-click) in *Google Chrome*, enable: `chrome://flags/#element-capture`
+For fullscreen zoom of output (by right-click) enable: `chrome://flags/#element-capture` (*Google Chrome*), or 
+`chrome://flags/#enable-experimental-web-platform-features` (*Chromium*).
 
 <br>
 
