@@ -324,7 +324,7 @@ async function capture() {
                 delegate: 'GPU'
             },
             runningMode: 'VIDEO',
-            numPoses: 2,
+            numPoses: 3,
             minPoseDetectionConfidence: .5,
             minPosePresenceConfidence: .5,
             minTrackingConfidence: .5,
