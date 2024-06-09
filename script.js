@@ -8,11 +8,24 @@ import {
 import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js'
 import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu@4.20.0/dist/tf-backend-webgpu.min.js'
 
-if (typeof CropTarget === 'undefined' ||
-    typeof navigator.mediaDevices.getDisplayMedia === 'undefined' ||
-    typeof MediaStreamTrackProcessor === 'undefined' ||
-    typeof MediaStreamTrackGenerator === 'undefined' ||
-    typeof VideoFrame === 'undefined')
+function getGPUInfo() {
+  const gl = document.createElement('canvas').getContext('webgl')
+  const ext = gl.getExtension('WEBGL_debug_renderer_info')
+  return ext ? {
+    vendor: gl.getParameter(ext.UNMASKED_VENDOR_WEBGL),
+    renderer: gl.getParameter(ext.UNMASKED_RENDERER_WEBGL),
+  } : {
+    vendor: 'unknown',
+    renderer: 'unknown',
+  }
+}
+console.log(getGPUInfo())
+
+if (typeof CropTarget == 'undefined' ||
+    typeof navigator.mediaDevices.getDisplayMedia == 'undefined' ||
+    typeof MediaStreamTrackProcessor == 'undefined' ||
+    typeof MediaStreamTrackGenerator == 'undefined' ||
+    typeof VideoFrame == 'undefined')
     out_video.outerHTML = '<div><p>Not supported by your browser :(</p><p>Try in Chromium desktop!</p><div>'
 
 video_url.addEventListener('change', e => get_video(e.currentTarget))
@@ -89,7 +102,8 @@ const effect_funcs = {
             lastVideoTime = videoFrame.timestamp
             poseLandmarker.detectForVideo(videoFrame, startTimeMs, result => {
                 canvasCtx.save()
-                canvasCtx.clearRect(0, 0, canvasCtx.canvas.width, canvasCtx.canvas.height)
+                canvas.width = 1920
+                canvas.height = 1080
                 result.landmarks.forEach((landmarks, i) => {
                     drawingUtils.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS, { color: colors[i % colors.length], lineWidth: 5 })
                     const color = colors[(i+1) % colors.length]
@@ -170,7 +184,7 @@ const effect_funcs = {
         }
     },
 
-    'cartoonization': (W, H, stride, Voffset, Uoffset, yuv, rgba, models, videoFrame, canvas) => {
+    'cartoonization_webgpu': (W, H, stride, Voffset, Uoffset, yuv, rgba, models, videoFrame) => {
         let rgb = new Float32Array(W * H * 3)
         for (let y = 0; y < H; y++) {
             const yUV = (y >> 1) * stride
@@ -290,7 +304,7 @@ async function capture() {
     }
     const [track] = stream.getVideoTracks()
     track.addEventListener('ended', () => capture_started = false)
-    if (typeof RestrictionTarget !== 'undefined') {
+    if (typeof RestrictionTarget != 'undefined') {
         // In Google Chrome, enable chrome://flags/#element-capture - this will enable fullscreen zoom of output
         // See: https://developer.chrome.com/docs/web-platform/element-capture
         // Note that pinch zoom pauses the stream: https://issues.chromium.org/issues/337337168
@@ -338,14 +352,13 @@ async function capture() {
         console.warn(e)
         await tf.setBackend('webgl')
     }
+    const queue = tf.backend().queue
 
     // https://github.com/SystemErrorWang/White-box-Cartoonization
     // https://github.com/vladmandic/anime
     const cartoon = await tf.loadGraphModel('cartoon/whitebox.json')
 
     const models = {'pose': poseLandmarker, 'segment': imageSegmenter, 'cartoon': cartoon}
-    canvas.width = 1920
-    canvas.height = 1080
     const canvasCtx = canvas.getContext('2d')
     const drawingUtils = new DrawingUtils(canvasCtx)
 
@@ -368,7 +381,9 @@ async function capture() {
                 const copyResult = await videoFrame.copyTo(yuv)
                 const { stride, offset: Voffset } = copyResult[1]
                 const { offset: Uoffset } = copyResult[2]
-                effect_funcs[effect.value](W, H, stride, Voffset, Uoffset, yuv, rgba, models, videoFrame, canvas)
+                effect_funcs[effect.value](W, H, stride, Voffset, Uoffset, yuv, rgba, models, videoFrame)
+                if (effect.value.includes('webgpu'))
+                    await queue.onSubmittedWorkDone()
             }
             const init = {
                 codedHeight: H,
