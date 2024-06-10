@@ -26,6 +26,14 @@ video_url.addEventListener('change', e => get_video(e.currentTarget))
 video_url.addEventListener('keydown', e => {if (e.key == 'Enter' || e.key == 'Tab') get_video(e.currentTarget)})
 video_url.addEventListener('focus', e => {if (e.currentTarget.value) capture_select(e.currentTarget)})
 
+document.addEventListener('keydown', e => {
+    if (e.key == 'ArrowUp' || e.key == 'ArrowDown') {
+        e.preventDefault()
+        const values = [...effect.querySelectorAll(':not([disabled])')].map(e => e.value)
+        effect.value = values[(values.length+values.indexOf(effect.value)+(e.key == 'ArrowUp' ? -1 : 1)) % values.length]
+    }
+})
+
 function get_video(input_elem) {
     let host = ''
     let vid_id = input_elem.value
@@ -380,7 +388,7 @@ async function capture() {
                 const { offset: Uoffset } = copyResult[2]
                 effect_funcs[effect.value](W, H, stride, Voffset, Uoffset, yuv, rgba, models, videoFrame)
                 if (effect.value.includes('webgpu'))
-                    await queue.onSubmittedWorkDone()  // This reduces lag. See also: https://github.com/tensorflow/tfjs/issues/6683#issuecomment-1219505611 , https://github.com/tensorflow/tfjs/issues/7800
+                    await queue.onSubmittedWorkDone()  // This reduces lag. See also: https://github.com/tensorflow/tfjs/issues/6683#issuecomment-1219505611, https://github.com/gpuweb/gpuweb/issues/3762#issuecomment-1400514317
             }
             const init = {
                 codedHeight: H,

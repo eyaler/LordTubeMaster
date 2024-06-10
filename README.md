@@ -9,7 +9,7 @@ Enable graphics/hardware acceleration browser setting to reduce lag.
 Specifically for the WebGPU example - make sure you are using a discrete GPU.
 
 For fullscreen zoom of output (by right-click) enable: `chrome://flags/#element-capture` (*Google Chrome*), or 
-`chrome://flags/#enable-experimental-web-platform-features` (*Chromium*).
+`chrome://flags/#enable-experimental-web-platform-features` (*Chromium*). You can browse the effects with `↑` and `↓`
 
 <br>
 
