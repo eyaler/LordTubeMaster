@@ -48,6 +48,7 @@ iframe, #out_container {
 }
 
 #out_container > * {
+    aspect-ratio: 16 / 9;
     left: 0;
     position: absolute;
     top: 50%;
