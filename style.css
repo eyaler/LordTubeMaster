@@ -48,11 +48,11 @@ iframe, #out_container {
 }
 
 #out_container > * {
-    height: 100%;
     left: 0;
     position: absolute;
-    top: 0;
-    width: 100%;
+    top: 50%;
+    translate: 0 -50%;
+    width: 100%
 }
 
 #out_container > div {

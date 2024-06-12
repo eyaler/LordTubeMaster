@@ -1,5 +1,6 @@
 import {
     PoseLandmarker,
+    FaceLandmarker,
     ImageSegmenter,
     FilesetResolver,
     DrawingUtils
@@ -27,7 +28,7 @@ video_url.addEventListener('keydown', e => {if (e.key == 'Enter' || e.key == 'Ta
 video_url.addEventListener('focus', e => {if (e.currentTarget.value) capture_select(e.currentTarget)})
 
 document.addEventListener('keydown', e => {
-    if (e.key == 'ArrowUp' || e.key == 'ArrowDown') {
+    if (e.altKey && (e.key == 'ArrowUp' || e.key == 'ArrowDown')) {
         e.preventDefault()
         const values = [...effect.querySelectorAll(':not([disabled])')].map(e => e.value)
         effect.value = values[(values.length+values.indexOf(effect.value)+(e.key == 'ArrowUp' ? -1 : 1)) % values.length]
@@ -144,13 +145,13 @@ const effect_funcs = {
                         const cy = (by+landmarks[24].y*H) / 2
                         const dx = (ax+landmarks[23].x*W) / 2
                         const dy = (ay+landmarks[23].y*H) / 2
-                        const min_x = Math.min(ax, bx, cx, dx)
-                        const max_x = Math.max(ax, bx, cx, dx)
-                        const min_y = Math.min(ay, by, cy, dy)
-                        const max_y = Math.max(ay, by, cy, dy)
+                        const min_x = Math.max(Math.min(ax, bx, cx, dx) | 0, 0)
+                        const max_x = Math.min(Math.max(ax, bx, cx, dx), W - 1)
+                        const min_y = Math.max(Math.min(ay, by, cy, dy) | 0, 0)
+                        const max_y = Math.min(Math.max(ay, by, cy, dy), H - 1)
                         const vertices = [[ax, ay], [bx, by], [cx, cy], [dx, dy]]
-                        for (let y = min_y | 0; y <= max_y; y++)
-                            for (let x = min_x | 0; x <= max_x; x++)
+                        for (let y = min_y; y <= max_y; y++)
+                            for (let x = min_x; x <= max_x; x++)
                                 if (is_inside_convex([x, y], vertices)) {
                                     const offset4 = (x+y*W) * 4
                                     rgba[offset4] = 255 - orig_rgba[offset4]
@@ -160,6 +161,46 @@ const effect_funcs = {
                     }
                 })
             )
+        }
+    },
+
+    'laser_eyes': (W, H, stride, Voffset, Uoffset, yuv, rgba, models, videoFrame, canvasCtx) => {
+        for (let y = 0; y < H; y++) {
+            const yUV = (y >> 1) * stride
+            for (let x = 0; x < W; x++) {
+                const xUV = x >> 1
+                const Y = yuv[x + y*W]
+                const U = yuv[Voffset + xUV + yUV]
+                const V = yuv[Uoffset + xUV + yUV]
+                const offset4 = (x+y*W) * 4
+                ;[rgba[offset4], rgba[offset4 + 1], rgba[offset4 + 2]] = yuv2rgb(Y, U, V)
+                rgba[offset4 + 3] = 255
+            }
+        }
+        const startTimeMs = performance.now()
+        if (lastVideoTime != videoFrame.timestamp) {
+            lastVideoTime = videoFrame.timestamp
+            canvasCtx.save()
+            canvas.width = W
+            canvas.height = H
+            models['face'].detectForVideo(videoFrame, startTimeMs).faceLandmarks.forEach((landmarks, i) => {
+                const eye1 = landmarks[468]
+                const eye2 = landmarks[473]
+                let vec_x = landmarks[6].x - (eye1.x+eye2.x)/2
+                let vec_y = landmarks[6].y - (eye1.y+eye2.y)/2
+                const norm = Math.sqrt(vec_x**2 + vec_y**2)
+                vec_x /= norm
+                vec_y /= norm
+                canvasCtx.lineWidth = Math.sqrt((eye2.x-eye1.x)**2 + ((eye2.y-eye1.y)*W/H)**2 + (eye2.z-eye1.z)**2) * 100
+                canvasCtx.strokeStyle = 'red'
+                canvasCtx.beginPath()
+                canvasCtx.moveTo(eye1.x * W, eye1.y * H)
+                canvasCtx.lineTo((eye1.x+vec_x) * W, (eye1.y+vec_y) * H)
+                canvasCtx.moveTo(eye2.x * W, eye2.y * H)
+                canvasCtx.lineTo((eye2.x+vec_x) * W, (eye2.y+vec_y) * H)
+                canvasCtx.stroke()
+            })
+            canvasCtx.restore()
         }
     },
 
@@ -338,6 +379,20 @@ async function capture() {
             minTrackingConfidence: .5,
         })
 
+    // https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker/web_js
+    const faceLandmarker = await FaceLandmarker.createFromOptions(
+        vision, {
+            baseOptions: {
+                modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task',
+                delegate: 'GPU'
+            },
+            runningMode: 'VIDEO',
+            numFaces: 3,
+            minFaceDetectionConfidence: .5,
+            minFacePresenceConfidence: .5,
+            minTrackingConfidence: .5,
+        })
+
     // https://ai.google.dev/edge/mediapipe/solutions/vision/image_segmenter/web_js
     const imageSegmenter = await ImageSegmenter.createFromOptions(
         vision, {
@@ -363,7 +418,7 @@ async function capture() {
             effect.value = effect.querySelector(':not([value*=webgpu])').value
     }
 
-    const models = {'pose': poseLandmarker, 'segment': imageSegmenter, 'cartoon': cartoon}
+    const models = {'pose': poseLandmarker, 'face': faceLandmarker, 'segment': imageSegmenter, 'cartoon': cartoon}
     const canvasCtx = canvas.getContext('2d')
     const drawingUtils = new DrawingUtils(canvasCtx)
 
@@ -376,7 +431,7 @@ async function capture() {
             const H = videoFrame.codedHeight
             if (effect.value.includes('landmarks'))
                 effect_funcs['pose_landmarks'](videoFrame, poseLandmarker, canvasCtx, drawingUtils)
-            else
+            else if (!effect.value.includes('laser'))
                 canvasCtx.clearRect(0, 0, canvas.width, canvas.height)
             let rgba = new Uint8ClampedArray(W * H * 4)
             if (effect.value == 'pose_landmarks')
@@ -386,7 +441,7 @@ async function capture() {
                 const copyResult = await videoFrame.copyTo(yuv)
                 const { stride, offset: Voffset } = copyResult[1]
                 const { offset: Uoffset } = copyResult[2]
-                effect_funcs[effect.value](W, H, stride, Voffset, Uoffset, yuv, rgba, models, videoFrame)
+                effect_funcs[effect.value](W, H, stride, Voffset, Uoffset, yuv, rgba, models, videoFrame, canvasCtx)
                 if (effect.value.includes('webgpu'))
                     await queue.onSubmittedWorkDone()  // This reduces lag. See also: https://github.com/tensorflow/tfjs/issues/6683#issuecomment-1219505611, https://github.com/gpuweb/gpuweb/issues/3762#issuecomment-1400514317
             }

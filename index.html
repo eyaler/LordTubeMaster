@@ -10,10 +10,11 @@
 <body onload="video_url.value = location.hash.slice(1); video_url.dispatchEvent(new Event('change'))">  <!-- Chromium allows requesting screen capture without user gesture (against the spec). See: https://issues.chromium.org/issues/40177563 -->
     <div id="inp_container">
         <input type="text" id="video_url" autofocus inputmode="url" spellcheck="false" size="45" placeholder="Enter YouTube/Vimeo ID or URL">
-        <select id="effect" aria-keyshortcuts="ArrowUp ArrowDown">
+        <select id="effect" title="Browse with Alt+↑ / Alt+↓" aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown">
             <option value="recode_landmarks">Recode + landmarks</option>
             <option value="pose_landmarks">Pose landmarks</option>
             <option value="chest_xray">Chest X-ray</option>
+            <option value="laser_eyes">Laser eyes</option>
             <option value="background_removal">Background removal</option>
             <option value="cartoonization_webgpu">Cartoonization (WebGPU)</option>
             <option value="pixel_sorting">Pixel sorting</option>
