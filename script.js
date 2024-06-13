@@ -195,18 +195,23 @@ const effect_funcs = {
                 if (norm > 1) {
                     vec_x /= norm
                     vec_y /= norm
+                    canvasCtx.strokeStyle = 'rgb(255 0 0 / 80%)'
+                    canvasCtx.shadowColor = 'red'
+                    canvasCtx.lineCap = 'round'
+                    const thickness = Math.sqrt((eye2.x-eye1.x)**2 + ((eye2.y-eye1.y)*H/W)**2 + (eye2.z-eye1.z)**2) * 100
+                    canvasCtx.lineWidth = thickness
+                    canvasCtx.shadowBlur = thickness
+                    console.log(thickness)
+                    canvasCtx.beginPath()
+                    canvasCtx.moveTo(eye1.x * W, eye1.y * H)
+                    canvasCtx.lineTo((eye1.x+vec_x) * W, (eye1.y+vec_y) * H)
+                    canvasCtx.moveTo(eye2.x * W, eye2.y * H)
+                    canvasCtx.lineTo((eye2.x+vec_x) * W, (eye2.y+vec_y) * H)
+                    canvasCtx.stroke()
                 } else {
-                    vec_x = 0
-                    vec_y = 1
+                    canvasCtx.fillStyle = 'rgb(255 0 0 / 50%)'
+                    canvasCtx.fillRect(0, 0, canvas.width, canvas.height)
                 }
-                canvasCtx.lineWidth = Math.sqrt((eye2.x-eye1.x)**2 + ((eye2.y-eye1.y)*H/W)**2 + (eye2.z-eye1.z)**2) * 100
-                canvasCtx.strokeStyle = 'red'
-                canvasCtx.beginPath()
-                canvasCtx.moveTo(eye1.x * W, eye1.y * H)
-                canvasCtx.lineTo((eye1.x+vec_x) * W, (eye1.y+vec_y) * H)
-                canvasCtx.moveTo(eye2.x * W, eye2.y * H)
-                canvasCtx.lineTo((eye2.x+vec_x) * W, (eye2.y+vec_y) * H)
-                canvasCtx.stroke()
             })
             canvasCtx.restore()
         }
