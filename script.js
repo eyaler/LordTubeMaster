@@ -184,14 +184,22 @@ const effect_funcs = {
             canvas.width = W
             canvas.height = H
             models['face'].detectForVideo(videoFrame, startTimeMs).faceLandmarks.forEach((landmarks, i) => {
+                // Landmarks: https://storage.googleapis.com/mediapipe-assets/documentation/mediapipe_face_landmark_fullsize.png
                 const eye1 = landmarks[468]
                 const eye2 = landmarks[473]
-                let vec_x = landmarks[6].x - (eye1.x+eye2.x)/2
-                let vec_y = landmarks[6].y - (eye1.y+eye2.y)/2
+                const avg = {x: (eye1.x+eye2.x) / 2, y: (eye1.y+eye2.y) / 2}
+                const mid = {x: (landmarks[6].x+landmarks[168].x) / 2, y: (landmarks[6].y+landmarks[168].y) / 2}
+                let vec_x = (mid.x-avg.x) * W
+                let vec_y = (mid.y-avg.y) * H
                 const norm = Math.sqrt(vec_x**2 + vec_y**2)
-                vec_x /= norm
-                vec_y /= norm
-                canvasCtx.lineWidth = Math.sqrt((eye2.x-eye1.x)**2 + ((eye2.y-eye1.y)*W/H)**2 + (eye2.z-eye1.z)**2) * 100
+                if (norm > 1) {
+                    vec_x /= norm
+                    vec_y /= norm
+                } else {
+                    vec_x = 0
+                    vec_y = 1
+                }
+                canvasCtx.lineWidth = Math.sqrt((eye2.x-eye1.x)**2 + ((eye2.y-eye1.y)*H/W)**2 + (eye2.z-eye1.z)**2) * 100
                 canvasCtx.strokeStyle = 'red'
                 canvasCtx.beginPath()
                 canvasCtx.moveTo(eye1.x * W, eye1.y * H)

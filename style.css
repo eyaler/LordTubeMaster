@@ -20,13 +20,13 @@ footer {
     background-color: black !important;
 }
 
-iframe {
+#orig_video {
     border: none;
     isolation: isolate;
     min-height: 0;
 }
 
-iframe, #out_container {
+#orig_video, #out_container {
     aspect-ratio: 16 / 9;
     background-color: black;
     height: 100%;
