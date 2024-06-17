@@ -201,7 +201,6 @@ const effect_funcs = {
                     const thickness = Math.sqrt((eye2.x-eye1.x)**2 + ((eye2.y-eye1.y)*H/W)**2 + (eye2.z-eye1.z)**2) * 100
                     canvasCtx.lineWidth = thickness
                     canvasCtx.shadowBlur = thickness
-                    console.log(thickness)
                     canvasCtx.beginPath()
                     canvasCtx.moveTo(eye1.x * W, eye1.y * H)
                     canvasCtx.lineTo((eye1.x+vec_x) * W, (eye1.y+vec_y) * H)
@@ -393,6 +392,7 @@ async function capture() {
         })
 
     // https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker/web_js
+    // Note: This is currently only for short range faces. See: https://github.com/google-ai-edge/mediapipe/issues/4869
     const faceLandmarker = await FaceLandmarker.createFromOptions(
         vision, {
             baseOptions: {
