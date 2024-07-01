@@ -21,7 +21,7 @@ if (typeof CropTarget == 'undefined' ||
     typeof MediaStreamTrackProcessor == 'undefined' ||
     typeof MediaStreamTrackGenerator == 'undefined' ||
     typeof VideoFrame == 'undefined')
-    out_video.outerHTML = '<div><p>Not supported by your browser :(</p><p>Try in Chromium desktop!</p><div>'
+    out_video.outerHTML = '<div><p>Not supported by your browser :(</p><p>Try in Chromium desktop!</p></div>'
 
 video_url.addEventListener('change', e => get_video(e.currentTarget))
 video_url.addEventListener('keydown', e => {if (e.key == 'Enter' || e.key == 'Tab') get_video(e.currentTarget)})
