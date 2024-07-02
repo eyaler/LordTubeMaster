@@ -272,14 +272,22 @@ const effect_funcs = {
         for (let y = 0; y < H; y++) {
             const yUV = (y >> 1) * stride
             const line = []
+            let start
+            let end
             for (let x = 0; x < W; x++) {
                 const xUV = x >> 1
                 const Y = yuv[x + y*W]
                 const U = yuv[Voffset + xUV + yUV]
                 const V = yuv[Uoffset + xUV + yUV]
                 line.push({Y, U, V})
+                if (Y != 16 || U != 128 || V != 128) {
+                    start ??= x
+                    end = x
+                }
             }
-            line.sort((a, b) => (a.Y - b.Y))
+            const part = line.splice(start, end - start + 1)
+            part.sort((a, b) => (a.Y - b.Y))
+            line.splice(start, 0, ...part)
             for (let x = 0; x < W; x++) {
                 const {Y, U, V} = line[x]
                 const offset4 = (x+y*W) * 4
