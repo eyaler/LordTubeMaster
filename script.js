@@ -84,7 +84,7 @@ function yuv2rgb(Y, U, V) {  // BT.709 https://github.com/pps83/libyuv/blob/mast
     Y = (Y-16) * 1.164
     U -= 128
     V -= 128
-    return [Y + 1.793*V, Y - .213*U - .533*V, Y + 2.112*U, 255]
+    return [Y + 1.793*V, Y - .213*U - .533*V, Y + 2.112*U]
 }
 
 function cross_product(A, B, C) {
@@ -145,8 +145,8 @@ const effect_funcs = {
         }
     },
 
-    'chest_xray': (W, H, rgba, models, videoFrame) => {
-        const orig_rgba = rgba.slice()
+    'chest_xray': (W, H, rgbx, models, videoFrame) => {
+        const orig_rgbx = rgbx.slice()
         const startTimeMs = performance.now()
         if (lastVideoTime != videoFrame.timestamp) {
             lastVideoTime = videoFrame.timestamp
@@ -170,9 +170,9 @@ const effect_funcs = {
                             for (let x = min_x; x <= max_x; x++)
                                 if (is_inside_convex([x, y], vertices)) {
                                     const offset4 = (x+y*W) * 4
-                                    rgba[offset4] = 255 - orig_rgba[offset4]
-                                    rgba[offset4 + 1] = 255 - orig_rgba[offset4 + 1]
-                                    rgba[offset4 + 2] = 255 - orig_rgba[offset4 + 2]
+                                    rgbx[offset4] = 255 - orig_rgbx[offset4]
+                                    rgbx[offset4 + 1] = 255 - orig_rgbx[offset4 + 1]
+                                    rgbx[offset4 + 2] = 255 - orig_rgbx[offset4 + 2]
                                 }
                     }
                 })
@@ -180,7 +180,7 @@ const effect_funcs = {
         }
     },
 
-    'laser_eyes': (W, H, rgba, models, videoFrame, canvasCtx) => {
+    'laser_eyes': (W, H, rgbx, models, videoFrame, canvasCtx) => {
         const startTimeMs = performance.now()
         if (lastVideoTime != videoFrame.timestamp) {
             lastVideoTime = videoFrame.timestamp
@@ -219,37 +219,37 @@ const effect_funcs = {
         }
     },
 
-    'background_removal': (W, H, rgba, models, videoFrame) => {
+    'background_removal': (W, H, rgbx, models, videoFrame) => {
         const startTimeMs = performance.now()
         if (lastVideoTime != videoFrame.timestamp) {
             lastVideoTime = videoFrame.timestamp
             models['segment'].segmentForVideo(videoFrame, startTimeMs, result =>
                 result.confidenceMasks[0].getAsFloat32Array().forEach((conf, offset) => {
                     if (conf > .5)
-                        rgba[offset * 4] = rgba[offset*4 + 1] = rgba[offset*4 + 2] = rgba[offset*4 + 3] = 0
+                        rgbx[offset * 4] = rgbx[offset*4 + 1] = rgbx[offset*4 + 2] = 0
                 })
             )
         }
     },
 
-    'cartoonization_tfjs_webgpu': (W, H, rgba, models, videoFrame, canvasCtx) => {
+    'cartoonization_tfjs_webgpu': (W, H, rgbx, models, videoFrame, canvasCtx) => {
         const rgb = new Float32Array(H * W * 3)
         for (let i = 0; i < rgb.length; i++)
-            rgb[i] = rgba[(i/3|0)*4 + i%3]
+            rgb[i] = rgbx[(i/3|0)*4 + i%3]
         tf.tidy(() => tf.browser.draw(models['cartoon'].execute(tf.tensor4d(rgb, [1, H, W, 3])
                         .resizeBilinear([720, 720]).div(127.5).sub(1)).squeeze().add(1).div(2), canvasCtx.canvas))
     },
 
-    'teed_edge_detection_ort_webgpu': async (W, H, rgba, models) => {
+    'teed_edge_detection_ort_webgpu': async (W, H, rgbx, models) => {
         const rgb = new Uint8Array(H * W * 3)
         for (let i = 0; i < rgb.length; i++)
-            rgb[i] = rgba[(i/3|0)*4 + i%3]
+            rgb[i] = rgbx[(i/3|0)*4 + i%3]
         const result = await models['teed'].run({input: new ort.Tensor(rgb, [1, H, W, 3])})
         for (let i = 0; i < result.output.data.length; i++)
-            rgba[i * 4] = rgba[i*4 + 1] = rgba[i*4 + 2] = result.output.data[i]
+            rgbx[i * 4] = rgbx[i*4 + 1] = rgbx[i*4 + 2] = result.output.data[i]
     },
 
-    'dot_camera_swissgl': (W, H, rgba, models, videoFrame, canvasCtx, glsl) => {
+    'dot_camera_swissgl': (W, H, rgbx, models, videoFrame, canvasCtx, glsl) => {
         const canvas = canvasCtx.canvas
         const gl_canvas = glsl.gl.canvas
         if (gl_canvas.width != W || gl_canvas.height != H) {
@@ -260,7 +260,7 @@ const effect_funcs = {
         canvasCtx.drawImage(gl_canvas, 0, 0)
     },
 
-    'pixel_sorting': (W, H, stride, Voffset, Uoffset, yuv, rgba) => {
+    'pixel_sorting': (W, H, stride, Voffset, Uoffset, yuv, rgbx) => {
         for (let y = 0; y < H; y++) {
             const yUV = (y >> 1) * stride
             const line = []
@@ -283,12 +283,12 @@ const effect_funcs = {
             for (let x = 0; x < W; x++) {
                 const {Y, U, V} = line[x]
                 const offset4 = (x+y*W) * 4
-                ;[rgba[offset4], rgba[offset4 + 1], rgba[offset4 + 2], rgba[offset4 + 3]] = yuv2rgb(Y, U, V)
+                ;[rgbx[offset4], rgbx[offset4 + 1], rgbx[offset4 + 2]] = yuv2rgb(Y, U, V)
             }
         }
     },
 
-    'bayer_dithering': (W, H, stride, Voffset, Uoffset, yuv, rgba) => {
+    'bayer_dithering': (W, H, stride, Voffset, Uoffset, yuv, rgbx) => {
         const bayer_r = 96
         const threshold = 144
         const matrix = [[ -0.5   ,  0     , -0.375 ,  0.125  ],
@@ -299,8 +299,7 @@ const effect_funcs = {
         for (let y = 0; y < H; y++)
             for (let x = 0; x < W; x++) {
                 const offset4 = (x+y*W) * 4
-                ;[rgba[offset4], rgba[offset4 + 1], rgba[offset4 + 2]] = yuv[x + y*W] + bayer_r*matrix[y % bayer_n][x % bayer_n] >= threshold ? [237, 230, 205] : [33, 38, 63]
-                rgba[offset4 + 3] = 255
+                ;[rgbx[offset4], rgbx[offset4 + 1], rgbx[offset4 + 2]] = yuv[x + y*W] + bayer_r*matrix[y % bayer_n][x % bayer_n] >= threshold ? [237, 230, 205] : [33, 38, 63]
             }
     },
 
@@ -434,11 +433,8 @@ async function capture() {
                 canvas.width = canvas.height = 0
             const W = videoFrame.codedWidth
             const H = videoFrame.codedHeight
-            const rgba = new Uint8ClampedArray(H * W * 4)
-            if (effect.value == 'pose_landmarks')
-                for (let i = 3; i < rgba.length; i += 4)
-                    rgba[i] = 255
-            else {
+            const rgbx = new Uint8ClampedArray(H * W * 4)
+            if (effect.value != 'pose_landmarks') {
                 let yuv_data = []
                 if (effect.value.includes('sorting') || effect.value.includes('dithering')) {
                     const yuv = new Uint8ClampedArray(H * W * 1.5)
@@ -447,10 +443,10 @@ async function capture() {
                     const {offset: Uoffset} = layout[2]
                     yuv_data = [stride, Voffset, Uoffset, yuv]
                 } else if (!effect.value.includes('swissgl')) {
-                    const layout = await videoFrame.copyTo(rgba, {format: 'RGBX'})
+                    const layout = await videoFrame.copyTo(rgbx, {format: 'RGBX'})
                     if (layout.length == 3)  // Fallback if copyTo(..., format) is not supported (Chrome < 127)
                     {
-                        const yuv = rgba.slice(0, H * W * 1.5)
+                        const yuv = rgbx.slice(0, H * W * 1.5)
                         const {stride, offset: Voffset} = layout[1]
                         const {offset: Uoffset} = layout[2]
                         for (let y = 0; y < H; y++) {
@@ -461,13 +457,13 @@ async function capture() {
                                 const U = yuv[Voffset + xUV + yUV]
                                 const V = yuv[Uoffset + xUV + yUV]
                                 const offset4 = (x+y*W) * 4
-                                ;[rgba[offset4], rgba[offset4 + 1], rgba[offset4 + 2], rgba[offset4 + 3]] = yuv2rgb(Y, U, V)
+                                ;[rgbx[offset4], rgbx[offset4 + 1], rgbx[offset4 + 2]] = yuv2rgb(Y, U, V)
                             }
                         }
                     }
                 }
                 if (!effect.value.includes('recode')) {
-                    await effect_funcs[effect.value](W, H, ...yuv_data, rgba, models, videoFrame, canvasCtx, glsl)
+                    await effect_funcs[effect.value](W, H, ...yuv_data, rgbx, models, videoFrame, canvasCtx, glsl)
                     if (effect.value.includes('tfjs_webgpu'))
                         await queue.onSubmittedWorkDone()  // This reduces lag. See also: https://github.com/tensorflow/tfjs/issues/6683#issuecomment-1219505611, https://github.com/gpuweb/gpuweb/issues/3762#issuecomment-1400514317
                 }
@@ -475,11 +471,12 @@ async function capture() {
             const init = {
                 codedHeight: H,
                 codedWidth: W,
-                format: 'RGBA',
+                format: 'RGBX',
+                alpha: 'discard',
                 timestamp: videoFrame.timestamp,
             }
             videoFrame.close()
-            controller.enqueue(new VideoFrame(rgba, init))
+            controller.enqueue(new VideoFrame(rgbx, init))
         }
     })
     const transformed = trackProcessor.readable.pipeThrough(transformer).pipeTo(trackGenerator.writable)
