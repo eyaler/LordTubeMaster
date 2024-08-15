@@ -29,6 +29,7 @@ footer {
 #orig_video, #out_container {
     aspect-ratio: 16 / 9;
     background-color: black;
+    clip-path: inset(1px);
     height: 100%;
     max-height: 50vw;
 }
@@ -37,7 +38,7 @@ footer {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 1rem;
+    gap: .8em;
 }
 
 #out_container {

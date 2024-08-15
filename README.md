@@ -3,12 +3,12 @@
 
 Demo: https://eyaler.github.io/LordTubeMaster/#dQw4w9WgXcQ
 
-Note as of June 2024 this is only supported on *Chromium desktop*.
+Note as of August 2024 this is only supported on *Chromium desktop*.
 
 Enable graphics/hardware acceleration browser setting to reduce lag.
 Specifically for the WebGPU example - make sure you are using a discrete GPU.
 
-For fullscreen zoom of output (by right-click) enable: `chrome://flags/#element-capture` (*Google Chrome*), or 
+For fullscreen zoom of output (with right-click) enable: `chrome://flags/#element-capture` (*Google Chrome*), or 
 `chrome://flags/#enable-experimental-web-platform-features` (*Chromium*). You can browse the effects with `Alt+↑` and `Alt+↓`
 
 <br>

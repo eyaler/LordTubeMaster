@@ -8,6 +8,10 @@ import {
 
 import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js'
 import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu@4.20.0/dist/tf-backend-webgpu.min.js'
+import * as ort from 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/esm/ort.webgpu.min.js'
+ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/'
+import SwissGL from 'https://cdn.jsdelivr.net/npm/@pluvial/swissgl/dist/swissgl.min.js'
+import DotCamera from './models/DotCamera.js'
 
 function getGPUInfo() {
   const gl = document.createElement('canvas').getContext('webgl')
@@ -23,14 +27,29 @@ if (typeof CropTarget == 'undefined' ||
     typeof VideoFrame == 'undefined')
     out_video.outerHTML = '<div><p>Not supported by your browser :(</p><p>Try in Chromium desktop!</p></div>'
 
-video_url.addEventListener('change', e => get_video(e.currentTarget))
-video_url.addEventListener('keydown', e => {if (e.key == 'Enter' || e.key == 'Tab') get_video(e.currentTarget)})
-video_url.addEventListener('focus', e => {if (e.currentTarget.value) capture_select(e.currentTarget)})
+let skip_changed
+video_url.addEventListener('keydown', e => {
+    if (e.key == 'Enter' || e.key == 'Tab') {
+        skip_changed = true
+        get_video(e.currentTarget)
+    }
+})
+video_url.addEventListener('change', e => {
+    if (!skip_changed)
+        get_video(e.currentTarget)
+    skip_changed = false
+})
+video_url.addEventListener('focus', e => {
+    skip_changed = false
+    e.currentTarget.select()  // Broken in Chrome. See: https://issues.chromium.org/issues/40345011#comment45
+    if (e.currentTarget.value)
+        capture()
+})
 
 document.addEventListener('keydown', e => {
     if (e.altKey && (e.key == 'ArrowUp' || e.key == 'ArrowDown')) {
         e.preventDefault()
-        const values = [...effect.querySelectorAll(':not([disabled])')].map(e => e.value)
+        const values = [...effect.querySelectorAll('option:not([disabled])')].map(e => e.value)
         effect.value = values[(values.length+values.indexOf(effect.value)+(e.key == 'ArrowUp' ? -1 : 1)) % values.length]
     }
 })
@@ -49,22 +68,23 @@ function get_video(input_elem) {
         host = input_url.hostname
         vid_id = input_url.searchParams.get('v') || input_url.pathname.split('/').at(-1)
     } catch {}
-    if (host.includes('vimeo') || vid_id.match(/^\d+$/))
+    if (host.includes('vimeo') || vid_id.match(/^\d+$/))  // Vimeo
         url = `https://player.vimeo.com/video/${vid_id}?autoplay=1&byline=0&dnt=1&loop=1&&muted=1&portrait=0&quality=1080p&title=0${params}`
-    else if (vid_id) {
+    else if (vid_id) {  // YouTube
         params = params.replace(/[&?]t=(\d+).*/, '&start=$1')
         url = `https://www.youtube-nocookie.com/embed/${vid_id}?autoplay=1&loop=1&playlist=${vid_id}&playsinline=1&rel=0${params}&mute=1`
+        orig_video.onload = () => {orig_video.onload = ''; orig_video.src = url}  // Reload to overcome "This video is unavailable" error on first load of video with playlist parameter. See: https://issuetracker.google.com/issues/249707272
     }
     location.hash = vid_id + params
     orig_video.src = url
-    capture_select(input_elem)
+    capture()
 }
 
-function yuv2rgb(Y, U, V) {  // https://github.com/pps83/libyuv/blob/master/source/row_common.cc#L1226
+function yuv2rgb(Y, U, V) {  // BT.709 https://github.com/pps83/libyuv/blob/master/source/row_common.cc#L1226
     Y = (Y-16) * 1.164
     U -= 128
     V -= 128
-    return [Y + 1.793*V, Y - .213*U - .533*V, Y + 2.112*U]
+    return [Y + 1.793*V, Y - .213*U - .533*V, Y + 2.112*U, 255]
 }
 
 function cross_product(A, B, C) {
@@ -94,6 +114,15 @@ function is_inside_convex(P, [A, B, C, D]) {
            is_same_side(P, B, D, A)
 }
 
+function fix_size_clear(canvasCtx, w, h) {
+    const canvas = canvasCtx.canvas
+    if (canvas.width != w || canvas.height != h) {
+        canvas.width = w
+        canvas.height = h
+    } else
+        canvasCtx.clearRect(0, 0, w, h)
+}
+
 const colors = ['lime', 'red', 'cyan', 'magenta']
 
 let lastVideoTime = -1
@@ -105,32 +134,19 @@ const effect_funcs = {
             lastVideoTime = videoFrame.timestamp
             poseLandmarker.detectForVideo(videoFrame, startTimeMs, result => {
                 canvasCtx.save()
-                canvas.width = 1920
-                canvas.height = 1080
+                fix_size_clear(canvasCtx, 1920, 1080)
                 result.landmarks.forEach((landmarks, i) => {
-                    drawingUtils.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS, { color: colors[i % colors.length], lineWidth: 5 })
+                    drawingUtils.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS, {color: colors[i % colors.length], lineWidth: 5})
                     const color = colors[(i+1) % colors.length]
-                    drawingUtils.drawLandmarks(landmarks, { color: color, fillColor: color, lineWidth: 0, radius: 5 })
+                    drawingUtils.drawLandmarks(landmarks, {color: color, fillColor: color, lineWidth: 0, radius: 5})
                 })
                 canvasCtx.restore()
             })
         }
     },
 
-    'chest_xray': (W, H, stride, Voffset, Uoffset, yuv, rgba, models, videoFrame) => {
-        for (let y = 0; y < H; y++) {
-            const yUV = (y >> 1) * stride
-            for (let x = 0; x < W; x++) {
-                const xUV = x >> 1
-                const Y = yuv[x + y*W]
-                const U = yuv[Voffset + xUV + yUV]
-                const V = yuv[Uoffset + xUV + yUV]
-                const offset4 = (x+y*W) * 4
-                ;[rgba[offset4], rgba[offset4 + 1], rgba[offset4 + 2]] = yuv2rgb(Y, U, V)
-                rgba[offset4 + 3] = 255
-            }
-        }
-        const orig_rgba = new Uint8ClampedArray(rgba)
+    'chest_xray': (W, H, rgba, models, videoFrame) => {
+        const orig_rgba = rgba.slice()
         const startTimeMs = performance.now()
         if (lastVideoTime != videoFrame.timestamp) {
             lastVideoTime = videoFrame.timestamp
@@ -164,25 +180,12 @@ const effect_funcs = {
         }
     },
 
-    'laser_eyes': (W, H, stride, Voffset, Uoffset, yuv, rgba, models, videoFrame, canvasCtx) => {
-        for (let y = 0; y < H; y++) {
-            const yUV = (y >> 1) * stride
-            for (let x = 0; x < W; x++) {
-                const xUV = x >> 1
-                const Y = yuv[x + y*W]
-                const U = yuv[Voffset + xUV + yUV]
-                const V = yuv[Uoffset + xUV + yUV]
-                const offset4 = (x+y*W) * 4
-                ;[rgba[offset4], rgba[offset4 + 1], rgba[offset4 + 2]] = yuv2rgb(Y, U, V)
-                rgba[offset4 + 3] = 255
-            }
-        }
+    'laser_eyes': (W, H, rgba, models, videoFrame, canvasCtx) => {
         const startTimeMs = performance.now()
         if (lastVideoTime != videoFrame.timestamp) {
             lastVideoTime = videoFrame.timestamp
             canvasCtx.save()
-            canvas.width = W
-            canvas.height = H
+            fix_size_clear(canvasCtx, W, H)
             models['face'].detectForVideo(videoFrame, startTimeMs).faceLandmarks.forEach((landmarks, i) => {
                 // Landmarks: https://storage.googleapis.com/mediapipe-assets/documentation/mediapipe_face_landmark_fullsize.png
                 const eye1 = landmarks[468]
@@ -209,63 +212,52 @@ const effect_funcs = {
                     canvasCtx.stroke()
                 } else {
                     canvasCtx.fillStyle = 'rgb(255 0 0 / 50%)'
-                    canvasCtx.fillRect(0, 0, canvas.width, canvas.height)
+                    canvasCtx.fillRect(0, 0, canvasCtx.canvas.width, canvasCtx.canvas.height)
                 }
             })
             canvasCtx.restore()
         }
     },
 
-    'background_removal': (W, H, stride, Voffset, Uoffset, yuv, rgba, models, videoFrame) => {
+    'background_removal': (W, H, rgba, models, videoFrame) => {
         const startTimeMs = performance.now()
         if (lastVideoTime != videoFrame.timestamp) {
             lastVideoTime = videoFrame.timestamp
             models['segment'].segmentForVideo(videoFrame, startTimeMs, result =>
                 result.confidenceMasks[0].getAsFloat32Array().forEach((conf, offset) => {
-                    if (conf < .5) {
-                        const y = offset / W | 0
-                        const x = offset % W
-                        const yUV = (y >> 1) * stride
-                        const xUV = x >> 1
-                        const Y = yuv[x + y*W]
-                        const U = yuv[Voffset + xUV + yUV]
-                        const V = yuv[Uoffset + xUV + yUV]
-                        const offset4 = offset * 4
-                        ;[rgba[offset4], rgba[offset4 + 1], rgba[offset4 + 2]] = yuv2rgb(Y, U, V)
-                        rgba[offset4 + 3] = 255
-                    }
+                    if (conf > .5)
+                        rgba[offset * 4] = rgba[offset*4 + 1] = rgba[offset*4 + 2] = rgba[offset*4 + 3] = 0
                 })
             )
         }
     },
 
-    'cartoonization_webgpu': (W, H, stride, Voffset, Uoffset, yuv, rgba, models, videoFrame) => {
-        let rgb = new Float32Array(W * H * 3)
-        for (let y = 0; y < H; y++) {
-            const yUV = (y >> 1) * stride
-            for (let x = 0; x < W; x++) {
-                const xUV = x >> 1
-                const Y = yuv[x + y*W]
-                const U = yuv[Voffset + xUV + yUV]
-                const V = yuv[Uoffset + xUV + yUV]
-                const offset3 = (x+y*W) * 3
-                const [R, G, B] = yuv2rgb(Y, U, V)
-                rgb[offset3] = R
-                rgb[offset3 + 1] = G
-                rgb[offset3 + 2] = B
-            }
-        }
+    'cartoonization_tfjs_webgpu': (W, H, rgba, models, videoFrame, canvasCtx) => {
+        const rgb = new Float32Array(H * W * 3)
+        for (let i = 0; i < rgb.length; i++)
+            rgb[i] = rgba[(i/3|0)*4 + i%3]
+        tf.tidy(() => tf.browser.draw(models['cartoon'].execute(tf.tensor4d(rgb, [1, H, W, 3])
+                        .resizeBilinear([720, 720]).div(127.5).sub(1)).squeeze().add(1).div(2), canvasCtx.canvas))
+    },
 
-        tf.tidy(() => {
-            rgb = models['cartoon'].execute(tf.tensor4d(rgb, [1, H, W, 3])
-                                  .resizeBilinear([720, 720])
-                                  .div(127.5)
-                                  .sub(1))
-                       .squeeze()
-                       .add(1)
-                       .div(2)
-            tf.browser.draw(rgb, canvas)
-        })
+    'teed_edge_detection_ort_webgpu': async (W, H, rgba, models) => {
+        const rgb = new Uint8Array(H * W * 3)
+        for (let i = 0; i < rgb.length; i++)
+            rgb[i] = rgba[(i/3|0)*4 + i%3]
+        const result = await models['teed'].run({input: new ort.Tensor(rgb, [1, H, W, 3])})
+        for (let i = 0; i < result.output.data.length; i++)
+            rgba[i * 4] = rgba[i*4 + 1] = rgba[i*4 + 2] = result.output.data[i]
+    },
+
+    'dot_camera_swissgl': (W, H, rgba, models, videoFrame, canvasCtx, glsl) => {
+        const canvas = canvasCtx.canvas
+        const gl_canvas = glsl.gl.canvas
+        if (gl_canvas.width != W || gl_canvas.height != H) {
+            canvas.width = gl_canvas.width = W
+            canvas.height = gl_canvas.height = H
+        }
+        models['dotcamera'].frame(glsl, videoFrame, {canvasSize: [canvas.clientWidth, canvas.clientHeight], DPR: devicePixelRatio})
+        canvasCtx.drawImage(gl_canvas, 0, 0)
     },
 
     'pixel_sorting': (W, H, stride, Voffset, Uoffset, yuv, rgba) => {
@@ -280,7 +272,7 @@ const effect_funcs = {
                 const U = yuv[Voffset + xUV + yUV]
                 const V = yuv[Uoffset + xUV + yUV]
                 line.push({Y, U, V})
-                if (Y != 16 || U != 128 || V != 128) {
+                if (Y > 16 || U != 128 || V != 128) {
                     start ??= x
                     end = x
                 }
@@ -291,8 +283,7 @@ const effect_funcs = {
             for (let x = 0; x < W; x++) {
                 const {Y, U, V} = line[x]
                 const offset4 = (x+y*W) * 4
-                ;[rgba[offset4], rgba[offset4 + 1], rgba[offset4 + 2]] = yuv2rgb(Y, U, V)
-                rgba[offset4 + 3] = 255
+                ;[rgba[offset4], rgba[offset4 + 1], rgba[offset4 + 2], rgba[offset4 + 3]] = yuv2rgb(Y, U, V)
             }
         }
     },
@@ -305,49 +296,15 @@ const effect_funcs = {
                         [ -0.3125,  0.1875, -0.4375,  0.0625 ],
                         [  0.4375, -0.0625,  0.3125, -0.1875 ]]
         const bayer_n = matrix.length
-        for (let y = 0; y < H; y++) {
-            const yUV = (y >> 1) * stride
+        for (let y = 0; y < H; y++)
             for (let x = 0; x < W; x++) {
-                const xUV = x >> 1
-                const Y = yuv[x + y*W]
-                const U = yuv[Voffset + xUV + yUV]
-                const V = yuv[Uoffset + xUV + yUV]
-                let R, G, B
-                if (Y + bayer_r*matrix[y % bayer_n][x % bayer_n] >= threshold) {
-                    R = 237
-                    G = 230
-                    B = 205
-                } else {
-                    R = 33
-                    G = 38
-                    B = 63
-                }
                 const offset4 = (x+y*W) * 4
-                rgba[offset4] = R
-                rgba[offset4 + 1] = G
-                rgba[offset4 + 2] = B
+                ;[rgba[offset4], rgba[offset4 + 1], rgba[offset4 + 2]] = yuv[x + y*W] + bayer_r*matrix[y % bayer_n][x % bayer_n] >= threshold ? [237, 230, 205] : [33, 38, 63]
                 rgba[offset4 + 3] = 255
             }
-        }
     },
 
-    'recode_original': (W, H, stride, Voffset, Uoffset, yuv, rgba) => {
-        for (let y = 0; y < H; y++) {
-            const yUV = (y >> 1) * stride
-            for (let x = 0; x < W; x++) {
-                const xUV = x >> 1
-                const Y = yuv[x + y*W]
-                const U = yuv[Voffset + xUV + yUV]
-                const V = yuv[Uoffset + xUV + yUV]
-                const offset4 = (x+y*W) * 4
-                ;[rgba[offset4], rgba[offset4 + 1], rgba[offset4 + 2]] = yuv2rgb(Y, U, V)
-                rgba[offset4 + 3] = 255
-            }
-        }
-    },
 }
-
-effect_funcs['recode_landmarks'] = effect_funcs['recode_original']
 
 let capture_started
 
@@ -368,7 +325,9 @@ async function capture() {
     const [track] = stream.getVideoTracks()
     track.addEventListener('ended', () => capture_started = false)
     if (typeof RestrictionTarget != 'undefined') {
-        // In Google Chrome, enable chrome://flags/#element-capture - this will enable fullscreen zoom of output
+        // For fullscreen zoom of output (with right-click) enable
+        // chrome://flags/#element-capture in Google Chrome, or
+        // chrome://flags/#enable-experimental-web-platform-features in Chromium
         // See: https://developer.chrome.com/docs/web-platform/element-capture
         // Note that pinch zoom pauses the stream: https://issues.chromium.org/issues/337337168
         const restrictionTarget = await RestrictionTarget.fromElement(orig_video)
@@ -424,6 +383,8 @@ async function capture() {
             runningMode: 'VIDEO',
         })
 
+    let webgpu = true
+
     let queue, cartoon
     try {
         await tf.setBackend('webgpu')
@@ -431,40 +392,85 @@ async function capture() {
 
         // https://github.com/SystemErrorWang/White-box-Cartoonization
         // https://github.com/vladmandic/anime
-        cartoon = await tf.loadGraphModel('cartoon/whitebox.json')
+        cartoon = await tf.loadGraphModel('models/cartoon/whitebox.json')
     } catch (e) {
         console.warn(e)
-        effect.querySelectorAll('[value*=webgpu]').forEach(e => e.disabled = true)
-        if (effect.value.disabled)
-            effect.value = effect.querySelector(':not([value*=webgpu])').value
+        webgpu = !e.message.includes('webgpu')
     }
 
-    const models = {'pose': poseLandmarker, 'face': faceLandmarker, 'segment': imageSegmenter, 'cartoon': cartoon}
+    let teed
+    try {
+        // https://github.com/xavysp/TEED
+        teed = await ort.InferenceSession.create('/models/teed/teed16.onnx', {executionProviders: ['webgpu']})
+    } catch (e) {
+        console.warn(e)
+        webgpu = !e.message.includes('webgpu')
+    }
+
+    if (!webgpu)
+        effect.querySelectorAll('option[value*=webgpu]').forEach(e => {
+            e.disabled = true
+            if (e.selected)
+                effect.value = effect.querySelector('option:not([value*=webgpu])').value
+        })
+
+    // https://github.com/google/swissgl/blob/main/demo/DotCamera.js
+    const gl = new OffscreenCanvas(0, 0).getContext('webgl2', {alpha: false, antialias: true})
+    const glsl = SwissGL(gl)
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
+    const dotcamera = new DotCamera(glsl, {dayMode: false, rgbMode: false})
+
+    const models = {'pose': poseLandmarker, 'face': faceLandmarker, 'segment': imageSegmenter, 'cartoon': cartoon, 'teed': teed, 'dotcamera': dotcamera}
     const canvasCtx = canvas.getContext('2d')
     const drawingUtils = new DrawingUtils(canvasCtx)
 
-    const trackProcessor = new MediaStreamTrackProcessor({ track: track })
-    const trackGenerator = new MediaStreamTrackGenerator({ kind: 'video' })
-    let yuv, rgba
+    const trackProcessor = new MediaStreamTrackProcessor({track: track})
+    const trackGenerator = new MediaStreamTrackGenerator({kind: 'video'})
     const transformer = new TransformStream({
         async transform(videoFrame, controller) {
-            const W = videoFrame.codedWidth
-            const H = videoFrame.codedHeight
             if (effect.value.includes('landmarks'))
                 effect_funcs['pose_landmarks'](videoFrame, poseLandmarker, canvasCtx, drawingUtils)
-            else if (!effect.value.includes('laser'))
-                canvasCtx.clearRect(0, 0, canvas.width, canvas.height)
-            let rgba = new Uint8ClampedArray(W * H * 4)
+            else if (!effect.value.includes('laser') && !effect.value.includes('swissgl') && (canvas.width != 0 || canvas.height != 0))
+                canvas.width = canvas.height = 0
+            const W = videoFrame.codedWidth
+            const H = videoFrame.codedHeight
+            const rgba = new Uint8ClampedArray(H * W * 4)
             if (effect.value == 'pose_landmarks')
-                rgba = rgba.map((_, i) => ((i+1) % 4 == 0) * 255)
+                for (let i = 3; i < rgba.length; i += 4)
+                    rgba[i] = 255
             else {
-                const yuv = new Uint8Array(W * H * 1.5)
-                const copyResult = await videoFrame.copyTo(yuv)
-                const { stride, offset: Voffset } = copyResult[1]
-                const { offset: Uoffset } = copyResult[2]
-                effect_funcs[effect.value](W, H, stride, Voffset, Uoffset, yuv, rgba, models, videoFrame, canvasCtx)
-                if (effect.value.includes('webgpu'))
-                    await queue.onSubmittedWorkDone()  // This reduces lag. See also: https://github.com/tensorflow/tfjs/issues/6683#issuecomment-1219505611, https://github.com/gpuweb/gpuweb/issues/3762#issuecomment-1400514317
+                let yuv_data = []
+                if (effect.value.includes('sorting') || effect.value.includes('dithering')) {
+                    const yuv = new Uint8ClampedArray(H * W * 1.5)
+                    const layout = await videoFrame.copyTo(yuv)
+                    const {stride, offset: Voffset} = layout[1]
+                    const {offset: Uoffset} = layout[2]
+                    yuv_data = [stride, Voffset, Uoffset, yuv]
+                } else if (!effect.value.includes('swissgl')) {
+                    const layout = await videoFrame.copyTo(rgba, {format: 'RGBX'})
+                    if (layout.length == 3)  // Fallback if copyTo(..., format) is not supported (Chrome < 127)
+                    {
+                        const yuv = rgba.slice(0, H * W * 1.5)
+                        const {stride, offset: Voffset} = layout[1]
+                        const {offset: Uoffset} = layout[2]
+                        for (let y = 0; y < H; y++) {
+                            const yUV = (y >> 1) * stride
+                            for (let x = 0; x < W; x++) {
+                                const xUV = x >> 1
+                                const Y = yuv[x + y*W]
+                                const U = yuv[Voffset + xUV + yUV]
+                                const V = yuv[Uoffset + xUV + yUV]
+                                const offset4 = (x+y*W) * 4
+                                ;[rgba[offset4], rgba[offset4 + 1], rgba[offset4 + 2], rgba[offset4 + 3]] = yuv2rgb(Y, U, V)
+                            }
+                        }
+                    }
+                }
+                if (!effect.value.includes('recode')) {
+                    await effect_funcs[effect.value](W, H, ...yuv_data, rgba, models, videoFrame, canvasCtx, glsl)
+                    if (effect.value.includes('tfjs_webgpu'))
+                        await queue.onSubmittedWorkDone()  // This reduces lag. See also: https://github.com/tensorflow/tfjs/issues/6683#issuecomment-1219505611, https://github.com/gpuweb/gpuweb/issues/3762#issuecomment-1400514317
+                }
             }
             const init = {
                 codedHeight: H,
@@ -478,10 +484,6 @@ async function capture() {
     })
     const transformed = trackProcessor.readable.pipeThrough(transformer).pipeTo(trackGenerator.writable)
     out_video.srcObject = new MediaStream([trackGenerator])
-}
-
-function capture_select(input_elem) {
-    capture().then(() => input_elem.select())
 }
 
 
@@ -498,7 +500,7 @@ function visibility_change_handler() {
         request_wake_lock()
 }
 
-function toggle_fullscreen(event_or_elem, landscape=true, elem) {
+function toggle_fullscreen(event_or_elem, landscape=true, target_screen, elem) {
     if (event_or_elem.preventDefault)
         event_or_elem.preventDefault()
     elem ??= event_or_elem?.currentTarget || event_or_elem
@@ -516,7 +518,7 @@ function toggle_fullscreen(event_or_elem, landscape=true, elem) {
                     wake_lock?.release().then(() => wake_lock = null)
             })
         }
-        elem.requestFullscreen({navigationUI: 'hide'}).catch(e => console.warn(e.message))
+        elem.requestFullscreen({navigationUI: 'hide', screen: target_screen}).catch(e => console.warn(e.message))
     } else
         document.exitFullscreen()
     return was_not_fullscreen_before
