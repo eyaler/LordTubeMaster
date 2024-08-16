@@ -58,11 +58,12 @@ function get_video(input_elem) {
     let host = ''
     let vid_id = input_elem.value
     let url = 'about:blank'
-    if (vid_id.includes('/') && !vid_id.includes('//'))
-        vid_id = 'https://' + vid_id
     let params = vid_id.match(/(#|&|\?[^v][^=]*=).+|$/)[0]
     if (params)
         vid_id = vid_id.split(params)[0]
+    if (vid_id.includes('/') && !vid_id.includes('//'))
+        vid_id = 'https://' + vid_id
+    const fallback = vid_id
     try {
         const input_url = new URL(vid_id)
         host = input_url.hostname
@@ -70,7 +71,10 @@ function get_video(input_elem) {
     } catch {}
     if (host.includes('vimeo') || vid_id.match(/^\d+$/))  // Vimeo
         url = `https://player.vimeo.com/video/${vid_id}?autoplay=1&byline=0&dnt=1&loop=1&&muted=1&portrait=0&quality=1080p&title=0${params}`
-    else if (vid_id) {  // YouTube
+    else if (host && !host.includes('youtu')) {  // Any other URL
+        url = fallback + params
+        vid_id = fallback.split('//').at(-1)
+    } else if (vid_id) {  // YouTube
         params = params.replace(/[&?]t=(\d+).*/, '&start=$1')
         url = `https://www.youtube-nocookie.com/embed/${vid_id}?autoplay=1&loop=1&playlist=${vid_id}&playsinline=1&rel=0${params}&mute=1`
         orig_video.onload = () => {orig_video.onload = ''; orig_video.src = url}  // Reload to overcome "This video is unavailable" error on first load of video with playlist parameter. See: https://issuetracker.google.com/issues/249707272
