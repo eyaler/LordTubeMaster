@@ -13,6 +13,8 @@ ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/di
 import SwissGL from 'https://cdn.jsdelivr.net/npm/@pluvial/swissgl/dist/swissgl.min.js'
 import DotCamera from './models/DotCamera.js'
 
+let loop_secs = 10
+
 function getGPUInfo() {
   const gl = document.createElement('canvas').getContext('webgl')
   const ext = gl.getExtension('WEBGL_debug_renderer_info')
@@ -46,13 +48,29 @@ video_url.addEventListener('focus', e => {
         capture()
 })
 
+let loop_mode
+effect.addEventListener('change', e => {
+    loop_mode = null
+    if (effect.value == 'loop' || effect.value == 'random') {
+        loop_mode = effect.value
+        loop_effects()
+    }
+})
 document.addEventListener('keydown', e => {
     if (e.altKey && (e.key == 'ArrowUp' || e.key == 'ArrowDown')) {
         e.preventDefault()
-        const values = [...effect.querySelectorAll('option:not([disabled])')].map(e => e.value)
-        effect.value = values[(values.length+values.indexOf(effect.value)+(e.key == 'ArrowUp' ? -1 : 1)) % values.length]
+        const effects = [...effect.querySelectorAll('option:not([disabled])')].map(e => e.value)
+        effect.value = effects[(effects.length+effects.indexOf(effect.value)+(e.key == 'ArrowUp' ? -1 : 1)) % effects.length]
     }
 })
+
+function loop_effects() {
+    if (!loop_mode)
+        return
+    const effects = [...effect.querySelectorAll('option:not([disabled]):not([label="meta" i] > *)')].map(e => e.value)
+    effect.value = effects[(effects.indexOf(effect.value)+(loop_mode == 'random' ? Math.random()*(effects.length-1) + 1 | 0: 1)) % effects.length]
+    setTimeout(loop_effects, loop_secs * 1000)
+}
 
 function get_video(input_elem) {
     let host = ''
@@ -404,7 +422,7 @@ async function capture() {
     let teed
     try {
         // https://github.com/xavysp/TEED
-        teed = await ort.InferenceSession.create('/models/teed/teed16.onnx', {executionProviders: ['webgpu']})
+        teed = await ort.InferenceSession.create('models/teed/teed16.onnx', {executionProviders: ['webgpu']})
     } catch (e) {
         console.warn(e)
         webgpu = !e.message.includes('webgpu')
@@ -466,7 +484,7 @@ async function capture() {
                         }
                     }
                 }
-                if (!effect.value.includes('recode')) {
+                if (effect.value in effect_funcs && !effect.value.includes('recode')) {
                     await effect_funcs[effect.value](W, H, ...yuv_data, rgbx, models, videoFrame, canvasCtx, glsl)
                     if (effect.value.includes('tfjs_webgpu'))
                         await queue.onSubmittedWorkDone()  // This reduces lag. See also: https://github.com/tensorflow/tfjs/issues/6683#issuecomment-1219505611, https://github.com/gpuweb/gpuweb/issues/3762#issuecomment-1400514317
