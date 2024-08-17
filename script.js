@@ -456,8 +456,7 @@ async function capture() {
             const W = videoFrame.codedWidth
             const H = videoFrame.codedHeight
             const rgbx = new Uint8ClampedArray(H * W * 4)
-            for (let i = 3; i < rgbx.length; i += 4)
-                rgbx[i] = 255
+
             if (effect.value != 'pose_landmarks') {
                 let yuv_data = []
                 if (effect.value.includes('sorting') || effect.value.includes('dithering')) {
@@ -500,10 +499,13 @@ async function capture() {
                 timestamp: videoFrame.timestamp,
             }
             videoFrame.close()
+            if (rgbx[3] == 0)  // Circumvent Chrome issue where alpha is not being ignored: https://issues.chromium.org/issues/360354555
+                for (let i = 3; i < rgbx.length; i += 4)
+                    rgbx[i] = 255
             controller.enqueue(new VideoFrame(rgbx, init))
         }
     })
-    const transformed = trackProcessor.readable.pipeThrough(transformer).pipeTo(trackGenerator.writable)
+    trackProcessor.readable.pipeThrough(transformer).pipeTo(trackGenerator.writable)
     out_video.srcObject = new MediaStream([trackGenerator])
 }
 
