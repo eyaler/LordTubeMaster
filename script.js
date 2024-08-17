@@ -155,8 +155,8 @@ const effect_funcs = {
         if (lastVideoTime != videoFrame.timestamp) {
             lastVideoTime = videoFrame.timestamp
             poseLandmarker.detectForVideo(videoFrame, startTimeMs, result => {
-                canvasCtx.save()
                 fix_size_clear(canvasCtx, 1920, 1080)
+                canvasCtx.save()
                 result.landmarks.forEach((landmarks, i) => {
                     drawingUtils.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS, {color: colors[i % colors.length], lineWidth: 5})
                     const color = colors[(i+1) % colors.length]
@@ -206,8 +206,8 @@ const effect_funcs = {
         const startTimeMs = performance.now()
         if (lastVideoTime != videoFrame.timestamp) {
             lastVideoTime = videoFrame.timestamp
-            canvasCtx.save()
             fix_size_clear(canvasCtx, W, H)
+            canvasCtx.save()
             models['face'].detectForVideo(videoFrame, startTimeMs).faceLandmarks.forEach((landmarks, i) => {
                 // Landmarks: https://storage.googleapis.com/mediapipe-assets/documentation/mediapipe_face_landmark_fullsize.png
                 const eye1 = landmarks[468]
@@ -274,7 +274,7 @@ const effect_funcs = {
     'dot_camera_swissgl': (W, H, rgbx, models, videoFrame, canvasCtx, glsl) => {
         const canvas = canvasCtx.canvas
         const gl_canvas = glsl.gl.canvas
-        if (gl_canvas.width != W || gl_canvas.height != H) {
+        if (canvas.width != W || canvas.height != H || gl_canvas.width != W || gl_canvas.height != H) {
             canvas.width = gl_canvas.width = W
             canvas.height = gl_canvas.height = H
         }
@@ -456,6 +456,8 @@ async function capture() {
             const W = videoFrame.codedWidth
             const H = videoFrame.codedHeight
             const rgbx = new Uint8ClampedArray(H * W * 4)
+            for (let i = 3; i < rgbx.length; i += 4)
+                rgbx[i] = 255
             if (effect.value != 'pose_landmarks') {
                 let yuv_data = []
                 if (effect.value.includes('sorting') || effect.value.includes('dithering')) {
