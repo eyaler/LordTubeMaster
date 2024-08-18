@@ -102,11 +102,16 @@ function get_video(input_elem) {
     capture()
 }
 
-function yuv2rgb(Y, U, V) {  // BT.709 https://github.com/pps83/libyuv/blob/master/source/row_common.cc#L1226
+function yuv2rgb(Y, U, V, bgr=false) {  // BT.709 https://github.com/pps83/libyuv/blob/master/source/row_common.cc#L1226
     Y = (Y-16) * 1.164
     U -= 128
     V -= 128
-    return [Y + 1.793*V, Y - .213*U - .533*V, Y + 2.112*U]
+    const R = Y + 1.793*V
+    const G = Y - .213*U - .533*V
+    const B = Y + 2.112*U
+    if (bgr)
+        return [B, G, R]
+    return [R, G, B]
 }
 
 function cross_product(A, B, C) {
@@ -237,18 +242,18 @@ const effect_funcs = {
     },
 
     'cartoonization_tfjs_webgpu': (W, H, rgbx, models, videoFrame, canvasCtx) => {
-        const rgb = new Float32Array(H * W * 3)
-        for (let i = 0; i < rgb.length; i++)
-            rgb[i] = rgbx[(i/3|0)*4 + i%3]
-        tf.tidy(() => tf.browser.draw(models['cartoon'].execute(tf.tensor4d(rgb, [1, H, W, 3])
-                        .resizeBilinear([720, 720]).div(127.5).sub(1)).squeeze().add(1).div(2), canvasCtx.canvas))
+        const bgr = new Float32Array(H * W * 3)
+        for (let i = 0; i < bgr.length; i++)
+            bgr[i] = rgbx[(i/3|0)*4 + i%3]
+        tf.tidy(() => tf.browser.draw(models['cartoon'].execute(tf.tensor4d(bgr, [1, H, W, 3])
+                        .resizeBilinear([720, 720]).div(127.5).sub(1)).squeeze().add(1).div(2).reverse(-1), canvasCtx.canvas))
     },
 
     'teed_edge_detection_ort_webgpu': async (W, H, rgbx, models) => {
-        const rgb = new Uint8Array(H * W * 3)
-        for (let i = 0; i < rgb.length; i++)
-            rgb[i] = rgbx[(i/3|0)*4 + i%3]
-        const result = await models['teed'].run({input: new ort.Tensor(rgb, [1, H, W, 3])})
+        const bgr = new Uint8Array(H * W * 3)
+        for (let i = 0; i < bgr.length; i++)
+            bgr[i] = rgbx[(i/3|0)*4 + i%3]
+        const result = await models['teed'].run({input: new ort.Tensor(bgr, [1, H, W, 3])})
         for (let i = 0; i < result.output.data.length; i++)
             rgbx[i * 4] = rgbx[i*4 + 1] = rgbx[i*4 + 2] = result.output.data[i]
     },
@@ -450,7 +455,8 @@ async function capture() {
                     const {offset: Uoffset} = layout[2]
                     yuv_data = [stride, Voffset, Uoffset, yuv]
                 } else if (!effect.value.includes('swissgl')) {
-                    const layout = await videoFrame.copyTo(rgbx, {format: 'RGBX'})
+                    const bgr = effect.value.includes('cartoon') || effect.value.includes('teed')
+                    const layout = await videoFrame.copyTo(rgbx, {format: bgr ? 'BGRX' : 'RGBX'})
                     if (layout.length == 3)  // Fallback if copyTo(..., format) is not supported (Chrome < 127)
                     {
                         const yuv = rgbx.slice(0, H * W * 1.5)
@@ -464,7 +470,7 @@ async function capture() {
                                 const U = yuv[Voffset + xUV + yUV]
                                 const V = yuv[Uoffset + xUV + yUV]
                                 const offset4 = (x+y*W) * 4
-                                ;[rgbx[offset4], rgbx[offset4 + 1], rgbx[offset4 + 2]] = yuv2rgb(Y, U, V)
+                                ;[rgbx[offset4], rgbx[offset4 + 1], rgbx[offset4 + 2]] = yuv2rgb(Y, U, V, bgr)
                             }
                         }
                     }
