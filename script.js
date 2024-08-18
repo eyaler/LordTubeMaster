@@ -147,111 +147,93 @@ function fix_size_clear(canvasCtx, w, h) {
 
 const colors = ['lime', 'red', 'cyan', 'magenta']
 
-let lastVideoTime = -1
-
 const effect_funcs = {
     'pose_landmarks': (videoFrame, poseLandmarker, canvasCtx, drawingUtils) => {
-        const startTimeMs = performance.now()
-        if (lastVideoTime != videoFrame.timestamp) {
-            lastVideoTime = videoFrame.timestamp
-            poseLandmarker.detectForVideo(videoFrame, startTimeMs, result => {
-                fix_size_clear(canvasCtx, 1920, 1080)
-                canvasCtx.save()
-                result.landmarks.forEach((landmarks, i) => {
-                    drawingUtils.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS, {color: colors[i % colors.length], lineWidth: 5})
-                    const color = colors[(i+1) % colors.length]
-                    drawingUtils.drawLandmarks(landmarks, {color: color, fillColor: color, lineWidth: 0, radius: 5})
-                })
-                canvasCtx.restore()
+        poseLandmarker.detectForVideo(videoFrame, performance.now(), result => {
+            fix_size_clear(canvasCtx, 1920, 1080)
+            canvasCtx.save()
+            result.landmarks.forEach((landmarks, i) => {
+                drawingUtils.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS, {color: colors[i % colors.length], lineWidth: 5})
+                const color = colors[(i+1) % colors.length]
+                drawingUtils.drawLandmarks(landmarks, {color: color, fillColor: color, lineWidth: 0, radius: 5})
             })
-        }
+            canvasCtx.restore()
+        })
     },
 
     'chest_xray': (W, H, rgbx, models, videoFrame) => {
         const orig_rgbx = rgbx.slice()
-        const startTimeMs = performance.now()
-        if (lastVideoTime != videoFrame.timestamp) {
-            lastVideoTime = videoFrame.timestamp
-            models['pose'].detectForVideo(videoFrame, startTimeMs, result =>
-                result.landmarks.forEach(landmarks => {
-                    if (Math.min(landmarks[11].visibility, landmarks[12].visibility) >= .9 && is_convex([landmarks[11].x, landmarks[11].y], [landmarks[12].x, landmarks[12].y], [landmarks[24].x, landmarks[24].y], [landmarks[23].x, landmarks[23].y])) {
-                        const ax = landmarks[11].x * W
-                        const ay = landmarks[11].y * H
-                        const bx = landmarks[12].x * W
-                        const by = landmarks[12].y * H
-                        const cx = (bx+landmarks[24].x*W) / 2
-                        const cy = (by+landmarks[24].y*H) / 2
-                        const dx = (ax+landmarks[23].x*W) / 2
-                        const dy = (ay+landmarks[23].y*H) / 2
-                        const min_x = Math.max(Math.min(ax, bx, cx, dx) | 0, 0)
-                        const max_x = Math.min(Math.max(ax, bx, cx, dx), W - 1)
-                        const min_y = Math.max(Math.min(ay, by, cy, dy) | 0, 0)
-                        const max_y = Math.min(Math.max(ay, by, cy, dy), H - 1)
-                        const vertices = [[ax, ay], [bx, by], [cx, cy], [dx, dy]]
-                        for (let y = min_y; y <= max_y; y++)
-                            for (let x = min_x; x <= max_x; x++)
-                                if (is_inside_convex([x, y], vertices)) {
-                                    const offset4 = (x+y*W) * 4
-                                    rgbx[offset4] = 255 - orig_rgbx[offset4]
-                                    rgbx[offset4 + 1] = 255 - orig_rgbx[offset4 + 1]
-                                    rgbx[offset4 + 2] = 255 - orig_rgbx[offset4 + 2]
-                                }
-                    }
-                })
-            )
-        }
+        models['pose'].detectForVideo(videoFrame, performance.now(), result =>
+            result.landmarks.forEach(landmarks => {
+                if (Math.min(landmarks[11].visibility, landmarks[12].visibility) >= .9 && is_convex([landmarks[11].x, landmarks[11].y], [landmarks[12].x, landmarks[12].y], [landmarks[24].x, landmarks[24].y], [landmarks[23].x, landmarks[23].y])) {
+                    const ax = landmarks[11].x * W
+                    const ay = landmarks[11].y * H
+                    const bx = landmarks[12].x * W
+                    const by = landmarks[12].y * H
+                    const cx = (bx+landmarks[24].x*W) / 2
+                    const cy = (by+landmarks[24].y*H) / 2
+                    const dx = (ax+landmarks[23].x*W) / 2
+                    const dy = (ay+landmarks[23].y*H) / 2
+                    const min_x = Math.max(Math.min(ax, bx, cx, dx) | 0, 0)
+                    const max_x = Math.min(Math.max(ax, bx, cx, dx), W - 1)
+                    const min_y = Math.max(Math.min(ay, by, cy, dy) | 0, 0)
+                    const max_y = Math.min(Math.max(ay, by, cy, dy), H - 1)
+                    const vertices = [[ax, ay], [bx, by], [cx, cy], [dx, dy]]
+                    for (let y = min_y; y <= max_y; y++)
+                        for (let x = min_x; x <= max_x; x++)
+                            if (is_inside_convex([x, y], vertices)) {
+                                const offset4 = (x+y*W) * 4
+                                rgbx[offset4] = 255 - orig_rgbx[offset4]
+                                rgbx[offset4 + 1] = 255 - orig_rgbx[offset4 + 1]
+                                rgbx[offset4 + 2] = 255 - orig_rgbx[offset4 + 2]
+                            }
+                }
+            })
+        )
     },
 
     'laser_eyes': (W, H, rgbx, models, videoFrame, canvasCtx) => {
-        const startTimeMs = performance.now()
-        if (lastVideoTime != videoFrame.timestamp) {
-            lastVideoTime = videoFrame.timestamp
-            fix_size_clear(canvasCtx, W, H)
-            canvasCtx.save()
-            models['face'].detectForVideo(videoFrame, startTimeMs).faceLandmarks.forEach((landmarks, i) => {
-                // Landmarks: https://storage.googleapis.com/mediapipe-assets/documentation/mediapipe_face_landmark_fullsize.png
-                const eye1 = landmarks[468]
-                const eye2 = landmarks[473]
-                const avg = {x: (eye1.x+eye2.x) / 2, y: (eye1.y+eye2.y) / 2}
-                const mid = {x: (landmarks[6].x+landmarks[168].x) / 2, y: (landmarks[6].y+landmarks[168].y) / 2}
-                let vec_x = (mid.x-avg.x) * W
-                let vec_y = (mid.y-avg.y) * H
-                const norm = Math.sqrt(vec_x**2 + vec_y**2)
-                if (norm > 1) {
-                    vec_x /= norm
-                    vec_y /= norm
-                    canvasCtx.strokeStyle = 'rgb(255 0 0 / 80%)'
-                    canvasCtx.shadowColor = 'red'
-                    canvasCtx.lineCap = 'round'
-                    const thickness = Math.sqrt((eye2.x-eye1.x)**2 + ((eye2.y-eye1.y)*H/W)**2 + (eye2.z-eye1.z)**2) * 100
-                    canvasCtx.lineWidth = thickness
-                    canvasCtx.shadowBlur = thickness
-                    canvasCtx.beginPath()
-                    canvasCtx.moveTo(eye1.x * W, eye1.y * H)
-                    canvasCtx.lineTo((eye1.x+vec_x) * W, (eye1.y+vec_y) * H)
-                    canvasCtx.moveTo(eye2.x * W, eye2.y * H)
-                    canvasCtx.lineTo((eye2.x+vec_x) * W, (eye2.y+vec_y) * H)
-                    canvasCtx.stroke()
-                } else {
-                    canvasCtx.fillStyle = 'rgb(255 0 0 / 50%)'
-                    canvasCtx.fillRect(0, 0, canvasCtx.canvas.width, canvasCtx.canvas.height)
-                }
-            })
-            canvasCtx.restore()
-        }
+        fix_size_clear(canvasCtx, W, H)
+        canvasCtx.save()
+        models['face'].detectForVideo(videoFrame, performance.now()).faceLandmarks.forEach((landmarks, i) => {
+            // Landmarks: https://storage.googleapis.com/mediapipe-assets/documentation/mediapipe_face_landmark_fullsize.png
+            const eye1 = landmarks[468]
+            const eye2 = landmarks[473]
+            const avg = {x: (eye1.x+eye2.x) / 2, y: (eye1.y+eye2.y) / 2}
+            const mid = {x: (landmarks[6].x+landmarks[168].x) / 2, y: (landmarks[6].y+landmarks[168].y) / 2}
+            let vec_x = (mid.x-avg.x) * W
+            let vec_y = (mid.y-avg.y) * H
+            const norm = Math.sqrt(vec_x**2 + vec_y**2)
+            if (norm > 1) {
+                vec_x /= norm
+                vec_y /= norm
+                canvasCtx.strokeStyle = 'rgb(255 0 0 / 80%)'
+                canvasCtx.shadowColor = 'red'
+                canvasCtx.lineCap = 'round'
+                const thickness = Math.sqrt((eye2.x-eye1.x)**2 + ((eye2.y-eye1.y)*H/W)**2 + (eye2.z-eye1.z)**2) * 100
+                canvasCtx.lineWidth = thickness
+                canvasCtx.shadowBlur = thickness
+                canvasCtx.beginPath()
+                canvasCtx.moveTo(eye1.x * W, eye1.y * H)
+                canvasCtx.lineTo((eye1.x+vec_x) * W, (eye1.y+vec_y) * H)
+                canvasCtx.moveTo(eye2.x * W, eye2.y * H)
+                canvasCtx.lineTo((eye2.x+vec_x) * W, (eye2.y+vec_y) * H)
+                canvasCtx.stroke()
+            } else {
+                canvasCtx.fillStyle = 'rgb(255 0 0 / 50%)'
+                canvasCtx.fillRect(0, 0, canvasCtx.canvas.width, canvasCtx.canvas.height)
+            }
+        })
+        canvasCtx.restore()
     },
 
     'background_removal': (W, H, rgbx, models, videoFrame) => {
-        const startTimeMs = performance.now()
-        if (lastVideoTime != videoFrame.timestamp) {
-            lastVideoTime = videoFrame.timestamp
-            models['segment'].segmentForVideo(videoFrame, startTimeMs, result =>
-                result.confidenceMasks[0].getAsFloat32Array().forEach((conf, offset) => {
-                    if (conf > .5)
-                        rgbx[offset * 4] = rgbx[offset*4 + 1] = rgbx[offset*4 + 2] = 0
-                })
-            )
-        }
+        models['segment'].segmentForVideo(videoFrame, performance.now(), result =>
+            result.confidenceMasks[0].getAsFloat32Array().forEach((conf, offset) => {
+                if (conf > .5)
+                    rgbx[offset * 4] = rgbx[offset*4 + 1] = rgbx[offset*4 + 2] = 0
+            })
+        )
     },
 
     'cartoonization_tfjs_webgpu': (W, H, rgbx, models, videoFrame, canvasCtx) => {
@@ -324,7 +306,6 @@ const effect_funcs = {
                 ;[rgbx[offset4], rgbx[offset4 + 1], rgbx[offset4 + 2]] = yuv[x + y*W] + bayer_r*matrix[y % bayer_n][x % bayer_n] >= threshold ? [237, 230, 205] : [33, 38, 63]
             }
     },
-
 }
 
 let capture_started
@@ -445,6 +426,9 @@ async function capture() {
     const canvasCtx = canvas.getContext('2d')
     const drawingUtils = new DrawingUtils(canvasCtx)
 
+    let frames = 0
+    setInterval(() => {console.debug('fps =', frames); frames = 0}, 1000)
+
     const trackProcessor = new MediaStreamTrackProcessor({track: track})
     const trackGenerator = new MediaStreamTrackGenerator({kind: 'video'})
     const transformer = new TransformStream({
@@ -503,6 +487,7 @@ async function capture() {
                 for (let i = 3; i < rgbx.length; i += 4)
                     rgbx[i] = 255
             controller.enqueue(new VideoFrame(rgbx, init))
+            frames++
         }
     })
     trackProcessor.readable.pipeThrough(transformer).pipeTo(trackGenerator.writable)
