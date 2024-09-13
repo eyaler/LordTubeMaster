@@ -237,8 +237,8 @@ const effect_funcs = {
 
     background_removal: (W, H, rgbx, models, videoFrame) => {
         models.segment.segmentForVideo(videoFrame, performance.now(), result =>
-            result.confidenceMasks[0].getAsFloat32Array().forEach((conf, index) => {
-                if (conf > .5)
+            result.categoryMask.getAsFloat32Array().forEach((cat, index) => {
+                if (!cat)
                     rgbx[index * 4] = rgbx[index*4 + 1] = rgbx[index*4 + 2] = 0
             })
         )
@@ -416,6 +416,8 @@ async function capture() {
                 delegate: 'GPU'
             },
             runningMode: 'VIDEO',
+            outputCategoryMask: true,
+            outputConfidenceMasks: false,
         }
     )
 
