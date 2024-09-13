@@ -13,7 +13,7 @@ For fullscreen zoom of output (with right-click) enable: `chrome://flags/#elemen
 
 You can browse the effects with `Alt+↑` and `Alt+↓`
 
-The code demos usages with MediaPipe/Wasm, TF.js/WebGPU, ONNX-Runtime/WebGPU, SwissGL and VanillaJS. 
+The code demos usages with MediaPipe/Wasm, TF.js/WebGPU, ONNX-Runtime/WebGPU, SwissGL, Three.js and VanillaJS. 
 
 <br>
 

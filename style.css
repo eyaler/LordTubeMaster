@@ -6,8 +6,8 @@ body {
     gap: 2rem;
     height: 100vh;
     height: 100dvh;
-    justify-content: center;
     margin: 0;
+    overflow: clip;
     padding-block: 2rem;
 }
 
@@ -16,49 +16,60 @@ footer {
     gap: 2em;
 }
 
-.fullscreen {
-    background-color: black !important;
-}
-
-#orig_video {
-    border: none;
-    isolation: isolate;
-    min-height: 0;
-}
-
-#orig_video, #out_container {
-    aspect-ratio: 16 / 9;
-    background-color: black;
-    clip-path: inset(1px);
-    height: 100%;
-    max-height: 50vw;
-}
-
-#inp_container {
+#inputs {
+    column-gap: 1rem;
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
-    gap: .8em;
+    justify-content: space-around;
+    margin-inline: 2rem;
+    max-width: 100%;
+    row-gap: 2rem;
 }
 
-#out_container {
-    color: white;
-    line-height: 3;
-    position: relative;
-    text-align: center;
+#videos {
+    display: grid;
+    flex-grow: 1;
+    gap: 2rem;
+    grid-template-rows: 1fr 1fr;
+    justify-items: center;
+    min-height: 0;
+    min-width: 0;
 }
 
-#out_container > * {
+#videos > * {
+    align-self: center;
     aspect-ratio: 16 / 9;
-    left: 0;
-    position: absolute;
-    top: 50%;
-    translate: 0 -50%;
-    width: 100%
+    border: none;
+    clip-path: inset(1px);
+    grid-column: 1;
+    grid-row: 1;
+    height: 100%;
+    isolation: isolate;
+    max-height: 56.25vw;
+    min-height: 0;
+    min-width: 0;
 }
 
-#out_container > div {
-    align-content: center;
-    font-family: sans-serif;
-    height: 100%;
+#videos > :not(canvas) {
+    background-color: black;
+}
+
+#videos:not(.fullscreen) > :not(:first-child) {
+    grid-row: 2;
+}
+
+.fullscreen {
+    grid-template-rows: 1fr !important;
+}
+
+.hide_cursor {
+    cursor: none;
+}
+
+@keyframes show_cursor {
+    0%, 100% { cursor: var(--cursor) }
+}
+
+.show_cursor {
+    animation: 3s show_cursor;
 }

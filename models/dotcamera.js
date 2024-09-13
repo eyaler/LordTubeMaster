@@ -6,36 +6,37 @@
   */
 
 export default class DotCamera {
-    constructor(glsl, {dayMode=false, rgbMode=false}) {
+    constructor(glsl, {dayMode=false, rgbMode=false}={}) {
+        this.glsl = glsl;
         this.dayMode = dayMode;
         this.rgbMode = rgbMode;
     }
 
-    frame(glsl, video, {canvasSize, DPR}) {
-        const tex = glsl({}, {data:video, tag:'video'});
+    frame(video, {canvasSize, DPR}) {
+        const tex = this.glsl({}, {data:video, tag:'video'});
         const blendParams = this.dayMode ? {Clear:1, Blend:'d-s'} : {Clear:0, Blend:'d+s'};
         const rgbMode = this.rgbMode;
-        const lum = glsl({tex:tex.edge.linear, ...blendParams, rgbMode,
+        const lum = this.glsl({tex:tex.edge.linear, ...blendParams, rgbMode,
             VP:`vec2 r = vec2(ViewSize)/vec2(tex_size()); r /= max(r.x, r.y); VPos.xy = XY/r;`, FP:`
             FOut = tex(UV);
             if (!rgbMode) {
-                FOut.r = dot(FOut.rgb, vec3(0.21,0.72,0.07));
+                FOut.r = dot(FOut.rgb, vec3(0.2126,0.7152,0.0722));
             }`},
             {scale:1/2/DPR, tag:'lum'});
-        const merged = glsl({T:lum.edge.miplinear, FP:`
+        const merged = this.glsl({T:lum.edge.miplinear, FP:`
             for (float lod=0.; lod<8.0; lod+=1.0) {FOut += textureLod(T, UV, lod);}
             FOut /= 8.0;`}, {size:lum.size, format:'rgba16f', tag:'merged'});
-        const imgForce = glsl({T:merged.edge, FP:`
+        const imgForce = this.glsl({T:merged.edge, FP:`
             vec2 s=T_step();
             vec4 a=T(UV-s), b=T(UV+vec2(s.x,-s.y)), c=T(UV+vec2(-s.x,s.y)), d=T(UV+s);
             FOut = b+d-a-c; FOut1 = c+d-a-b;`
         }, {size:lum.size, layern:2, format:'rgba16f', tag:'grad'});
 
         const arg = {canvasSize, rgbMode};
-        const field = glsl({}, {scale:1/4/DPR, format:'rgba16f', layern:3, filter:'linear', tag:'field'});
+        const field = this.glsl({}, {scale:1/4/DPR, format:'rgba16f', layern:3, filter:'linear', tag:'field'});
         let points;
         for (let i=0; i<10; ++i) {
-            points = glsl({...arg, field:field.edge, imgForce:imgForce.edge.linear, seed: Math.random()*124237, FP: `
+            points = this.glsl({...arg, field:field.edge, imgForce:imgForce.edge.linear, seed: Math.random()*124237, FP: `
                 int c = rgbMode ? I.x%3 : 0;
                 vec4 p=Src(I), f=field(p.xy, c);
                 if (p.w == 0.0) {
@@ -48,7 +49,7 @@ export default class DotCamera {
                 p.xy = clamp(p.xy + force/canvasSize, vec2(0), vec2(1));
                 FOut = p;
             `}, {scale:(rgbMode?1.7:1)/8/DPR, story:2, format:'rgba32f', tag:'points'});
-            glsl({...arg, points:points[0], Grid: points[0].size, Blend:'s+d', Clear:0, VP:`
+            this.glsl({...arg, points:points[0], Grid: points[0].size, Blend:'s+d', Clear:0, VP:`
                 VPos.xy = (points(ID.xy).xy + XY*15.0/canvasSize)*2.0-1.0;
                 int c = rgbMode ? ID.x%3 : 0;
                 varying vec3 color = vec3(c==0,c==1,c==2);`,FP:`
@@ -56,7 +57,7 @@ export default class DotCamera {
                 FOut=v*color.r; FOut1=v*color.g; FOut2=v*color.b;`}, field)
         }
         // draw dots on screen
-        glsl({...arg, points:points[0], Grid: points[0].size, ...blendParams, VP:`
+        this.glsl({...arg, points:points[0], Grid: points[0].size, ...blendParams, VP:`
             VPos.xy = (points(ID.xy).xy + XY*4.0/canvasSize)*2.0-1.0;
             int c = ID.x%3;
             varying vec3 color = rgbMode ? vec3(c==0,c==1,c==2) : vec3(1);`,

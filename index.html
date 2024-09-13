@@ -8,8 +8,8 @@
     <script src="script.js" type="module"></script>
 </head>
 <body onload="video_url.value = location.hash.slice(1); video_url.select(); video_url.dispatchEvent(new Event('change'))">  <!-- Chromium allows requesting screen capture without user gesture (against the spec). See: https://issues.chromium.org/issues/40177563 -->
-    <div id="inp_container">
-        <input type="text" id="video_url" autofocus inputmode="url" spellcheck="false" size="45" placeholder="Enter YouTube/Vimeo ID or any URL">
+    <div id="inputs">
+        <input type="text" id="video_url" autofocus inputmode="url" spellcheck="false" size="45" placeholder="Enter YouTube / Vimeo ID + params or any URL">
         <select id="effect" title="Browse with Alt+↑ / Alt+↓" aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown">
             <optgroup label="MediaPipe/Wasm">
                 <option value="recode_landmarks">Recode + landmarks</option>
@@ -21,6 +21,7 @@
             <option value="cartoonization_tfjs_webgpu">Cartoonization (TF.js/WebGPU)</option>
             <option value="teed_edge_detection_ort_webgpu">TEED edge detection (ORT/WebGPU)</option>
             <option value="dot_camera_swissgl">Dot "camera" (SwissGL)</option>
+            <option value="ruttetraizer_threejs">Rutt-Etra-Izer with mouse (Three.js)</option>
             <option value="bayer_dithering">Bayer dithering</option>
             <option value="pixel_sorting">Pixel sorting</option>
             <optgroup label="Meta">
@@ -28,13 +29,12 @@
                 <option value="loop">Loop all effects</option>
                 <option value="random">Randomize all effects</option>
             </optgroup>
-
         </select>
     </div>
-    <iframe id="orig_video" allow="autoplay; fullscreen" allowfullscreen></iframe>
-    <div id="out_container">
+    <div id="videos">
+        <iframe id="orig_video" allow="autoplay; fullscreen" allowfullscreen></iframe>
         <video id="out_video" autoplay muted playsinline></video>
-        <canvas id="canvas"></canvas>
+        <canvas id="canvas" class="hide_cursor"></canvas>
     </div>
     <footer>
         <a href="https://github.com/eyaler/LordTubeMaster/">code</a>
