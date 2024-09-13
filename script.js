@@ -80,6 +80,7 @@ document.addEventListener('keydown', e => {
         e.preventDefault()
         const effects = [...effect.querySelectorAll('option:not([disabled])')].map(e => e.value)
         effect.value = effects[(effects.length+effects.indexOf(effect.value)+(e.key == 'ArrowUp' ? -1 : 1)) % effects.length]
+        effect.dispatchEvent(new Event('change'))
     }
 })
 
