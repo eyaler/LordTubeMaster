@@ -336,7 +336,7 @@ if (debug_fps)
 
 let capture_started
 async function capture() {
-    if (capture_started)
+    if (capture_started || orig_video.src == 'about:blank')
         return
     capture_started = true
     let stream
