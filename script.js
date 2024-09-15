@@ -14,6 +14,8 @@ import {
 } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.15/vision_bundle.mjs'
 const mediapipe_wasm_url = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.15/wasm'
 
+import {AutoModel, AutoProcessor, RawImage} from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0-alpha.15/dist/transformers.min.js'
+
 import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.21.0/dist/tf.min.js'
 import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu@4.21.0/dist/tf-backend-webgpu.min.js'
 
@@ -28,6 +30,8 @@ import RuttEtraIzer from './models/ruttetraizer.js'
 
 function getGPUInfo() {
   const gl = document.createElement('canvas').getContext('webgl')
+  if (!gl)
+    return 'Failed getting GPU info'
   const ext = gl.getExtension('WEBGL_debug_renderer_info')
   return gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER)
 }
@@ -244,6 +248,18 @@ const effect_funcs = {
         )
     },
 
+    modnet_transformers_webgpu: async (W, H, rgbx, models) => {
+        const {pixel_values} = await models.modnet_preproc(new RawImage(rgbx, W, H, 4).rgb())
+        const {output} = await models.modnet({input: pixel_values})
+        const {data} = await RawImage.fromTensor(output[0].mul(255).to('uint8')).resize(W, H)
+        for (let i = 0; i < data.length; i++) {
+            const alpha = data[i] / 255
+            rgbx[i * 4] *= alpha
+            rgbx[i*4 + 1] *= alpha
+            rgbx[i*4 + 2] *= alpha
+        }
+    },
+
     cartoonization_tfjs_webgpu: (W, H, bgrx, models, videoFrame, canvasCtx) => {
         const bgr = new Float32Array(H * W * 3)
         for (let i = 0; i < bgr.length; i++)
@@ -256,9 +272,9 @@ const effect_funcs = {
         const bgr = new Uint8Array(H * W * 3)
         for (let i = 0; i < bgr.length; i++)
             bgr[i] = bgrx[(i/3|0)*4 + i%3]
-        const result = await models.teed.run({input: new ort.Tensor(bgr, [1, H, W, 3])})
-        for (let i = 0; i < result.output.data.length; i++)
-            bgrx[i * 4] = bgrx[i*4 + 1] = bgrx[i*4 + 2] = result.output.data[i]
+        const {output: {data}} = await models.teed.run({input: new ort.Tensor(bgr, [1, H, W, 3])})
+        for (let i = 0; i <data.length; i++)
+            bgrx[i * 4] = bgrx[i*4 + 1] = bgrx[i*4 + 2] = data[i]
     },
 
     dot_camera_swissgl: (W, H, rgbx, models, videoFrame, canvasCtx, gl_engines) => {
@@ -332,7 +348,7 @@ const effect_funcs = {
 
 let frames = 0
 if (debug_fps)
-    setInterval(() => {if (frames) console.debug('fps =', frames); frames = 0}, 1000)
+    setInterval(() => {if (frames) console.debug(`fps ${frames == 1 ? '<' : ''}=`, frames); frames = 0}, 1000)
 
 let capture_started
 async function capture() {
@@ -421,7 +437,23 @@ async function capture() {
         }
     )
 
-    let webgpu = true
+    let need_select
+    function disable_option(value) {
+        const option = effect.querySelector(`option[value=${value}]`)
+        option.disabled = true
+        need_select ||= option.selected
+    }
+
+    let modnet, modnet_preproc
+    try {
+        // https://github.com/ZHKKKe/MODNet
+        // https://huggingface.co/Xenova/modnet
+        modnet = await AutoModel.from_pretrained('Xenova/modnet', {quantized: false, device: 'webgpu', dtype: 'fp32'})
+        modnet_preproc = await AutoProcessor.from_pretrained('Xenova/modnet')
+    } catch (e) {
+        console.warn(e)
+        disable_option('modnet_transformers_webgpu')
+    }
 
     let queue, cartoon
     try {
@@ -433,7 +465,7 @@ async function capture() {
         cartoon = await tf.loadGraphModel('models/cartoon/whitebox.json')
     } catch (e) {
         console.warn(e)
-        webgpu = !e.message.includes('webgpu')
+        disable_option('cartoonization_tfjs_webgpu')
     }
 
     let teed
@@ -442,15 +474,8 @@ async function capture() {
         teed = await ort.InferenceSession.create('models/teed/teed16.onnx', {executionProviders: ['webgpu']})
     } catch (e) {
         console.warn(e)
-        webgpu = !e.message.includes('webgpu')
+        disable_option('teed_edge_detection_ort_webgpu')
     }
-
-    if (!webgpu)
-        effect.querySelectorAll('option[value*=webgpu]').forEach(e => {
-            e.disabled = true
-            if (e.selected)
-                effect.value = effect.querySelector('option:not([value*=webgpu])').value
-        })
 
     // https://github.com/google/swissgl/blob/main/demo/DotCamera.js
     const gl = new OffscreenCanvas(0, 0).getContext('webgl2', {alpha: false, antialias: true})
@@ -463,7 +488,20 @@ async function capture() {
     const ruttetraizer = new RuttEtraIzer(THREE, renderer, canvas)
 
     const gl_engines = {swissgl: glsl, threejs: renderer}
-    const models = {pose: poseLandmarker, face: faceLandmarker, segment: imageSegmenter, cartoon: cartoon, teed: teed, dotcamera: dotcamera, ruttetra: ruttetraizer}
+
+    if (need_select)
+        effect.value = effect.querySelector('option:not([disabled])').value
+
+    const models = {pose: poseLandmarker,
+                    face: faceLandmarker,
+                    segment: imageSegmenter,
+                    modnet: modnet,
+                    modnet_preproc: modnet_preproc,
+                    cartoon: cartoon,
+                    teed: teed,
+                    dotcamera: dotcamera,
+                    ruttetra: ruttetraizer,
+                   }
     const drawingUtils = new DrawingUtils(canvasCtx)
 
     const trackProcessor = new MediaStreamTrackProcessor({track: track})
@@ -505,7 +543,7 @@ async function capture() {
                                 const V = yuv[Uoffset + xUV + yUV]
                                 const index4 = (x+y*W) * 4
                                 ;[rgbx[index4], rgbx[index4 + 1], rgbx[index4 + 2]] = yuv2rgb(Y, U, V, format)
-                                rgbx[index4 + 3] = 255
+                                rgbx[index4 + 3] = 255  // Circumvent Chrome issue where alpha is not being ignored: https://issues.chromium.org/issues/360354555
                             }
                         }
                     }
