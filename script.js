@@ -239,7 +239,7 @@ const effect_funcs = {
         canvasCtx.restore()
     },
 
-    background_removal: (W, H, rgbx, models, videoFrame) => {
+    background_segmentation: (W, H, rgbx, models, videoFrame) => {
         models.segment.segmentForVideo(videoFrame, performance.now(), result =>
             result.categoryMask.getAsFloat32Array().forEach((cat, index) => {
                 if (!cat)
@@ -448,8 +448,9 @@ async function capture() {
     try {
         // https://github.com/ZHKKKe/MODNet
         // https://huggingface.co/Xenova/modnet
-        modnet = await AutoModel.from_pretrained('Xenova/modnet', {quantized: false, device: 'webgpu', dtype: 'fp32'})
-        modnet_preproc = await AutoProcessor.from_pretrained('Xenova/modnet')
+        const modnet_path = 'Xenova/modnet'
+        modnet = await AutoModel.from_pretrained(modnet_path, {quantized: false, device: 'webgpu', dtype: 'fp32'})
+        modnet_preproc = await AutoProcessor.from_pretrained(modnet_path)
     } catch (e) {
         console.warn(e)
         disable_option('modnet_transformers_webgpu')
@@ -484,8 +485,14 @@ async function capture() {
     const dotcamera = new DotCamera(glsl, {dayMode: false, rgbMode: false})
 
     // https://www.airtightinteractive.com/2011/06/rutt-etra-izer/
-    const renderer = new THREE.WebGLRenderer({antialias: true, powerPreference: 'high-performance', sortObjects: false})
-    const ruttetraizer = new RuttEtraIzer(THREE, renderer, canvas)
+    let renderer, ruttetraizer
+    try {
+        renderer = new THREE.WebGLRenderer({antialias: true, powerPreference: 'high-performance', sortObjects: false})
+        ruttetraizer = new RuttEtraIzer(THREE, renderer, canvas)
+    } catch (e) {
+        console.warn(e)
+        disable_option('ruttetraizer_threejs')
+    }
 
     const gl_engines = {swissgl: glsl, threejs: renderer}
 
@@ -508,7 +515,7 @@ async function capture() {
     const trackGenerator = new MediaStreamTrackGenerator({kind: 'video'})
     const transformer = new TransformStream({
         async transform(videoFrame, controller) {
-            if (effect.value.includes('landmarks'))
+            if (effect.value.includes('pose_landmarks'))
                 effect_funcs.pose_landmarks(videoFrame, poseLandmarker, canvasCtx, drawingUtils)
             else if (!effect.value.includes('laser') && !effect.value.includes('swissgl') && !effect.value.includes('threejs') && (canvas.width || canvas.height))
                 canvas.width = canvas.height = 0

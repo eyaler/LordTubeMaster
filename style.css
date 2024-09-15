@@ -17,12 +17,13 @@ footer {
 }
 
 #inputs {
+    column-gap: 1rem;
     display: flex;
     flex-wrap: wrap;
-    gap: 2rem;
     justify-content: space-around;
     margin-inline: 2rem;
     max-width: 100%;
+    row-gap: 2rem;
 }
 
 #videos {
