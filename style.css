@@ -17,7 +17,7 @@ footer {
 }
 
 #inputs {
-    column-gap: 1rem;
+    column-gap: 1.5rem;
     display: flex;
     flex-wrap: wrap;
     justify-content: space-around;
@@ -40,7 +40,6 @@ footer {
     align-self: center;
     aspect-ratio: 16 / 9;
     border: none;
-    clip-path: inset(1px);
     grid-column: 1;
     grid-row: 1;
     height: 100%;

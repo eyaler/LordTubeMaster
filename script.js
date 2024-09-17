@@ -1,6 +1,6 @@
 const debug_fps = true
 const loop_secs = 10
-const max_res = 1920
+const max_res_width = 1920
 
 import load_video from './utils/videoloader.js'
 import toggle_fullscreen from './utils/fullscreen.js'
@@ -22,7 +22,7 @@ import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu@4.21.0/dist
 import * as ort from 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.webgpu.min.mjs'
 ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/'
 
-import SwissGL from 'https://cdn.jsdelivr.net/npm/@pluvial/swissgl/dist/swissgl.min.js'
+import SwissGL from './swissgl/swissgl.mjs'
 import DotCamera from './models/dotcamera.js'
 
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.min.js'
@@ -211,25 +211,26 @@ const effect_funcs = {
             // Landmarks: https://storage.googleapis.com/mediapipe-assets/documentation/mediapipe_face_landmark_fullsize.png
             const eye1 = landmarks[468]
             const eye2 = landmarks[473]
+            eye1.x *= W
+            eye1.y *= H
+            eye2.x *= W
+            eye2.y *= H
             const avg = {x: (eye1.x+eye2.x) / 2, y: (eye1.y+eye2.y) / 2}
-            const mid = {x: (landmarks[6].x+landmarks[168].x) / 2, y: (landmarks[6].y+landmarks[168].y) / 2}
-            let vec_x = (mid.x-avg.x) * W
-            let vec_y = (mid.y-avg.y) * H
-            const norm = Math.sqrt(vec_x**2 + vec_y**2)
-            if (norm > 1) {
-                vec_x /= norm
-                vec_y /= norm
+            const mid = {x: (landmarks[6].x+landmarks[168].x) * W / 2, y: (landmarks[6].y+landmarks[168].y) * H / 2}
+            let vec_x = mid.x - avg.x
+            let vec_y = mid.y - avg.y
+            if (Math.sqrt(vec_x**2 + vec_y**2) > 2) {
                 canvasCtx.strokeStyle = 'rgb(255 0 0 / 80%)'
                 canvasCtx.shadowColor = 'red'
                 canvasCtx.lineCap = 'round'
-                const thickness = Math.sqrt((eye2.x-eye1.x)**2 + ((eye2.y-eye1.y)*H/W)**2 + (eye2.z-eye1.z)**2) * 100
+                const thickness = Math.sqrt((eye2.x-eye1.x)**2 + (eye2.y-eye1.y)**2 + ((eye2.z-eye1.z)*W)**2) / 20
                 canvasCtx.lineWidth = thickness
                 canvasCtx.shadowBlur = thickness
                 canvasCtx.beginPath()
-                canvasCtx.moveTo(eye1.x * W, eye1.y * H)
-                canvasCtx.lineTo((eye1.x+vec_x) * W, (eye1.y+vec_y) * H)
-                canvasCtx.moveTo(eye2.x * W, eye2.y * H)
-                canvasCtx.lineTo((eye2.x+vec_x) * W, (eye2.y+vec_y) * H)
+                canvasCtx.moveTo(eye1.x, eye1.y)
+                canvasCtx.lineTo(eye1.x + vec_x * W, eye1.y + vec_y * W)
+                canvasCtx.moveTo(eye2.x, eye2.y)
+                canvasCtx.lineTo(eye2.x + vec_x * W, eye2.y + vec_y * W)
                 canvasCtx.stroke()
             } else {
                 canvasCtx.fillStyle = 'rgb(255 0 0 / 50%)'
@@ -285,7 +286,7 @@ const effect_funcs = {
             canvas.width = gl_canvas.width = W
             canvas.height = gl_canvas.height = H
         }
-        models.dotcamera.frame(videoFrame, {canvasSize: [canvas.clientWidth, canvas.clientHeight], DPR: devicePixelRatio})
+        models.dotcamera.frame(videoFrame, {canvasSize: [W, H], DPR: 1.5})
         canvasCtx.drawImage(gl_canvas, 0, 0)
     },
 
@@ -298,7 +299,7 @@ const effect_funcs = {
             canvas.height = gl_canvas.height = H
             renderer.setViewport(0, 0, W, H)
         }
-        models.ruttetra.frame(W, H, rgbx, {scanStep: 5, depth: 100})
+        models.ruttetra.frame(W, H, rgbx, {scanStep: 7, depth: 100})
         canvasCtx.drawImage(gl_canvas, 0, 0)
     },
 
@@ -338,17 +339,22 @@ const effect_funcs = {
                         [ -0.3125,  0.1875, -0.4375,  0.0625 ],
                         [  0.4375, -0.0625,  0.3125, -0.1875 ]]
         const bayer_n = matrix.length
-        for (let y = 0; y < H; y++)
-            for (let x = 0; x < W; x++) {
-                const index4 = (x+y*W) * 4
-                ;[rgbx[index4], rgbx[index4 + 1], rgbx[index4 + 2]] = (yuv[x + y*W]-16)*1.164 + bayer_r*matrix[y % bayer_n][x % bayer_n] >= threshold ? [237, 230, 205] : [33, 38, 63]
+        const downscale = 3
+        for (let y = 0; y < H; y += downscale)
+            for (let x = 0; x < W; x += downscale) {
+                const val = (yuv[x + y*W]-16)*1.164 + bayer_r*matrix[y / downscale % bayer_n][x / downscale % bayer_n] >= threshold ? [237, 230, 205] : [33, 38, 63]
+                for (let j = 0; j < downscale; j++)
+                    for (let i = 0; i < downscale; i++) {
+                        const index4 = ((x+i)+(y+j)*W) * 4
+                        ;[rgbx[index4], rgbx[index4 + 1], rgbx[index4 + 2]] = val
             }
+        }
     },
 }
 
 let frames = 0
 if (debug_fps)
-    setInterval(() => {if (frames) console.debug(`fps ${frames == 1 ? '<' : ''}=`, frames); frames = 0}, 1000)
+    setInterval(() => {if (frames) console.debug(`(${out_video.videoWidth}x${out_video.videoHeight}) fps ${frames == 1 ? '<' : ''}=`, frames); frames = 0}, 1000)
 
 let capture_started
 async function capture() {
@@ -363,7 +369,7 @@ async function capture() {
             video: {
                 aspectRatio: 16 / 9,
                 cursor: 'never',  // Not implemented yet. See: https://issues.chromium.org/issues/40649204
-                width: {max: max_res}
+                width: {max: max_res_width || undefined},
             },
         })
     } catch (e) {
@@ -391,13 +397,12 @@ async function capture() {
     const vision = await FilesetResolver.forVisionTasks(mediapipe_wasm_url)
 
     // https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker/web_js
+    const pose_model_size = 'lite'  // 'full', 'heavy'
     const poseLandmarker = await PoseLandmarker.createFromOptions(
         vision,
         {
             baseOptions: {
-                modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task',
-                // modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task',
-                // modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/latest/pose_landmarker_heavy.task',
+                modelAssetPath: `https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_${pose_model_size}/float16/latest/pose_landmarker_${pose_model_size}.task`,
                 delegate: 'GPU'
             },
             runningMode: 'VIDEO',

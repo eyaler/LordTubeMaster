@@ -39,7 +39,7 @@ export default class RuttEtraIzer {
         canvas.addEventListener('wheel', e => scale = Math.max(1, Math.min(scale + e.deltaY*scale_rate, 10)), {passive: true})
     }
 
-    frame(W, H, rgbx, {scanStep=5, depth=100}={}) {
+    frame(W, H, rgbx, {scanStep=7, depth=100}={}) {
         const THREE = this.THREE
 
         if (this.lineGroup) {
@@ -53,9 +53,10 @@ export default class RuttEtraIzer {
             const colors = []
             for (let x = 0; x < W; x += scanStep) {
                 const index4 = (x+y*W) * 4
-                const color = new THREE.Color(rgbx[index4] / 255, rgbx[index4 + 1] / 255, rgbx[index4 + 2] / 255).convertSRGBToLinear()
+                let color = new THREE.Color(rgbx[index4] / 255, rgbx[index4 + 1] / 255, rgbx[index4 + 2] / 255)
                 const brightness = .2126*color.r + .7152*color.g + .0722*color.b
-                points.push(new THREE.Vector3(x - W/2, H/2 - y, (.5-brightness) * depth))
+                points.push(new THREE.Vector3(x - W/2, H/2 - y, brightness * depth))
+                color = color.convertSRGBToLinear()
                 colors.push(color.r, color.g, color.b)
             }
             const geometry = new THREE.BufferGeometry().setFromPoints(points)
