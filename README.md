@@ -14,9 +14,13 @@ For fullscreen zoom of output (with right-click) enable: `chrome://flags/#elemen
 You can browse the effects with `Alt+↑` and `Alt+↓`
 
 The code demos usages with Wasm ([MediaPipe](https://ai.google.dev/edge/mediapipe/solutions/guide)),
-WebGPU ([Transformers.js](https://huggingface.co/docs/transformers.js/index), [TensorFlow.js](https://www.tensorflow.org/js), [ONNX-Runtime](https://onnxruntime.ai/docs/get-started/with-javascript/web.html)),
-WebGL ([SwissGL](https://google.github.io/swissgl/), [Three.js](https://threejs.org/)), and VanillaJS.
+WebGPU ([TensorFlow.js](https://www.tensorflow.org/js), [ONNX Runtime Web](https://onnxruntime.ai/docs/get-started/with-javascript/web.html), [Transformers.js](https://huggingface.co/docs/transformers.js/index)),
+WebGL ([Three.js](https://threejs.org/), [SwissGL](https://google.github.io/swissgl/)), and VanillaJS.
 
 <br>
 
 [Demo video](https://github.com/eyaler/LordTubeMaster/assets/4436747/2352969c-889d-478e-b386-8bdf6452a797)
+
+<br>
+
+![Architecture](LordTubeMaster.svg)
