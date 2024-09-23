@@ -14,8 +14,9 @@ import {
 } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.15/vision_bundle.mjs'
 const mediapipe_wasm_url = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.15/wasm'
 
-import {AutoModel, AutoProcessor, RawImage} from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17/dist/transformers.min.js'
-// import {AutoModel, AutoProcessor, RawImage} from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0-alpha.15/dist/transformers.min.js'
+import {AutoModel, AutoProcessor, RawImage} from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js'
+// import {AutoModel, AutoProcessor, RawImage} from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0-alpha.16/dist/transformers.min.js'
+// Note modnet on transformers v3 is 10x faster on chromium 128 but crashed on 129+. See: https://github.com/xenova/transformers.js/issues/943
 
 import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.21.0/dist/tf.min.js'
 import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu@4.21.0/dist/tf-backend-webgpu.min.js'
@@ -68,12 +69,12 @@ video_url.addEventListener('change', e => {
 video_url.addEventListener('focus', e => {
     skip_changed = false
     e.currentTarget.select()  // Broken in Chrome. See: https://issues.chromium.org/issues/40345011#comment45
-    if (e.currentTarget.value)
-        capture()
 })
 
 let loop_mode
 effect.addEventListener('change', e => {
+    if (e.currentTarget.value)
+        capture()
     loop_mode = null
     if (e.currentTarget.value == 'loop' || e.currentTarget.value == 'random') {
         loop_mode = e.currentTarget.value
