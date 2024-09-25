@@ -8,8 +8,8 @@ Note as of September 2024 this is only supported on *Chromium desktop*.
 Enable graphics/hardware acceleration browser setting to reduce lag.
 Particularly for the WebGPU examples - make sure you are using a discrete GPU.
 
-For fullscreen zoom of output (with right-click) enable: `chrome://flags/#element-capture` (*Google Chrome*), or 
-`chrome://flags/#enable-experimental-web-platform-features` (*Chromium*).
+To allow fullscreen zoom of output (with right-click) enable: `chrome://flags/#element-capture` (*Google Chrome 121+*), or 
+`chrome://flags/#enable-experimental-web-platform-features` (*Chromium 121+*).
 
 You can browse the effects with `Alt+↑` and `Alt+↓`
 
@@ -18,7 +18,7 @@ WebGPU ([TensorFlow.js](https://www.tensorflow.org/js), [ONNX Runtime Web](https
 WebGL ([Three.js](https://threejs.org/), [SwissGL](https://google.github.io/swissgl/)), and VanillaJS.
 
 Known issues:
-1. Modnet crashes using Transformers.js v3-alpha on Chromium 129+: https://github.com/xenova/transformers.js/issues/943 (I currently reverted to v2 causing a significant slowdown)
+1. Modnet crashes using Transformers.js v3-alpha on Chromium 129+: https://github.com/xenova/transformers.js/issues/943 (currently reverted to v2 with a significant slowdown)
 2. Resolution of captured media is doubled for smaller frames: https://github.com/screen-share/element-capture/issues/44
 
 <br>
@@ -27,4 +27,4 @@ Known issues:
 
 <br>
 
-![Architecture](LordTubeMaster.svg)
+![Architecture](media/LordTubeMaster.svg)

@@ -24,7 +24,7 @@ import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu@4.21.0/dist
 import * as ort from 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.webgpu.min.mjs'
 ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/'
 
-import SwissGL from './swissgl/swissgl.mjs'
+import SwissGL from './libs/swissgl/swissgl.mjs'
 import DotCamera from './models/dotcamera.js'
 
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.min.js'
