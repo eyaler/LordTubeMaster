@@ -14,8 +14,8 @@ import {
 } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.15/vision_bundle.mjs'
 const mediapipe_wasm_url = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.15/wasm'
 
-import {AutoModel, AutoProcessor, RawImage} from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js'
-// import {AutoModel, AutoProcessor, RawImage} from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0-alpha.16/dist/transformers.min.js'
+import {AutoModel, AutoProcessor, RawImage, env as transformersEnv} from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js'
+// import {AutoModel, AutoProcessor, RawImage, env as transformersEnv} from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0-alpha.16/dist/transformers.min.js'
 // Note modnet on transformers v3 is 10x faster on chromium 128 but crashed on 129+. See: https://github.com/xenova/transformers.js/issues/943
 
 import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.21.0/dist/tf.min.js'
@@ -45,10 +45,10 @@ if (!('CropTarget' in window &&
     'MediaStreamTrackProcessor' in window &&
     'MediaStreamTrackGenerator' in window &&
     'VideoFrame' in window)) {
-    fix_size_clear(canvasCtx, 1280, 720)
     canvasCtx.font = '60px sans-serif'
     canvasCtx.fillStyle = 'white'
     canvasCtx.textAlign = 'center'
+    fix_size_clear(canvasCtx, 1280, 720)
     canvasCtx.fillText('Not supported by your browser :(', canvas.width / 2, canvas.height/2 - 100)
     canvasCtx.fillText('Try in Chromium desktop!', canvas.width / 2, canvas.height/2 + 100)
     canvas.textContent = 'Not supported by your browser. Try in Chromium desktop!'
@@ -66,18 +66,25 @@ video_url.addEventListener('change', e => {
         get_video(e.currentTarget)
     skip_changed = false
 })
+video_url.addEventListener('click', e => {
+    skip_changed = false
+    if (e.currentTarget.value)
+        capture()
+})
 video_url.addEventListener('focus', e => {
     skip_changed = false
     e.currentTarget.select()  // Broken in Chrome. See: https://issues.chromium.org/issues/40345011#comment45
 })
 
-let loop_mode
+let loop_mode, loop_start
 effect.addEventListener('change', e => {
     if (e.currentTarget.value)
         capture()
     loop_mode = null
+    loop_start = 0
     if (e.currentTarget.value == 'loop' || e.currentTarget.value == 'random') {
         loop_mode = e.currentTarget.value
+        loop_start = performance.now()
         loop_effects()
     }
 })
@@ -93,8 +100,8 @@ document.addEventListener('keydown', e => {
 function loop_effects() {
     if (!loop_mode || !capture_started)
         return
-    const effects = [...effect.querySelectorAll('option:not([disabled]):not([label="meta" i] > *)')].map(e => e.value)
-    effect.value = effects[(effects.indexOf(effect.value)+(loop_mode == 'random' ? Math.random()*(effects.length-1) + 1 | 0: 1)) % effects.length]
+    const effects = [...effect.querySelectorAll('option:not([disabled]):not([label="meta" i] > *)')].filter(e => !transformersEnv.version.startsWith('2.') || !e.value.includes('transformers')).map(e => e.value)
+    effect.value = effects[(effects.indexOf(effect.value)+(loop_mode == 'random' ? Math.random()*(effects.length-1) + 1 | 0 : 1)) % effects.length]
     setTimeout(loop_effects, loop_secs * 1000)
 }
 
@@ -280,7 +287,7 @@ const effect_funcs = {
             bgrx[i * 4] = bgrx[i*4 + 1] = bgrx[i*4 + 2] = data[i]
     },
 
-    dot_camera_swissgl: (W, H, rgbx, models, videoFrame, canvasCtx, gl_engines) => {
+    dotcamera_swissgl: (W, H, rgbx, models, videoFrame, canvasCtx, gl_engines) => {
         const canvas = canvasCtx.canvas
         const glsl = gl_engines.swissgl
         const gl_canvas = glsl.gl.canvas
@@ -288,7 +295,7 @@ const effect_funcs = {
             canvas.width = gl_canvas.width = W
             canvas.height = gl_canvas.height = H
         }
-        models.dotcamera.frame(videoFrame, {canvasSize: [W, H], DPR: 1.5})
+        models.dotcamera.frame(videoFrame, {canvasSize: [W, H], DPR: 1.5, loop_start: loop_start})
         canvasCtx.drawImage(gl_canvas, 0, 0)
     },
 
@@ -301,7 +308,7 @@ const effect_funcs = {
             canvas.height = gl_canvas.height = H
             renderer.setViewport(0, 0, W, H)
         }
-        models.ruttetra.frame(W, H, rgbx, {scanStep: 7, depth: 100})
+        models.ruttetra.frame(W, H, rgbx, {scanStep: 7, depth: 100, loop_start: loop_start})
         canvasCtx.drawImage(gl_canvas, 0, 0)
     },
 

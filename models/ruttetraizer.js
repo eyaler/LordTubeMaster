@@ -2,9 +2,18 @@
 // Original RuttEtraIzer by Felix Turner www.airtight.cc
 
 const scale_rate = .01
+const min_scale = 1
+const max_scale = 10
+const rot_rate_x = .0003
+const rot_rate_y = .0002
+const min_rot = .33
+const max_rot = .66
+
 let scale = 2
 let pointer_x = .5
 let pointer_y = .5
+let rot_dir_x = 1
+let rot_dir_y = 1
 let down_x
 let down_y
 
@@ -36,10 +45,10 @@ export default class RuttEtraIzer {
 		    }
         })
 
-        canvas.addEventListener('wheel', e => scale = Math.max(1, Math.min(scale + e.deltaY*scale_rate, 10)), {passive: true})
+        canvas.addEventListener('wheel', e => scale = Math.max(min_scale, Math.min(scale + e.deltaY*scale_rate, max_scale)), {passive: true})
     }
 
-    frame(W, H, rgbx, {scanStep=7, depth=100}={}) {
+    frame(W, H, rgbx, {scanStep=7, depth=100, loop_start=0}={}) {
         const THREE = this.THREE
 
         if (this.lineGroup) {
@@ -62,6 +71,22 @@ export default class RuttEtraIzer {
             const geometry = new THREE.BufferGeometry().setFromPoints(points)
             geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3))
             this.lineGroup.add(new THREE.Line(geometry, this.material))
+        }
+        if (loop_start) {
+            const rand = Math.random()
+            if (rand > .5) {
+                pointer_x += rot_dir_x * rot_rate_x
+                if (pointer_x < min_rot || pointer_x > max_rot) {
+                    pointer_x = Math.max(min_rot, Math.min(pointer_x, max_rot))
+                    rot_dir_x *= -1
+                }
+            } else {
+                pointer_y += rot_dir_y * rot_rate_y
+                if (pointer_y < min_rot || pointer_y > max_rot) {
+                    pointer_y = Math.max(min_rot, Math.min(pointer_y, max_rot))
+                    rot_dir_y *= -1
+                }
+            }
         }
         this.lineGroup.scale.setScalar(scale)
 	    this.lineGroup.rotation.x = (pointer_y*2-1)*Math.PI

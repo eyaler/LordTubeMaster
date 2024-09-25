@@ -12,10 +12,12 @@ export default class DotCamera {
         this.rgbMode = rgbMode;
     }
 
-    frame(video, {canvasSize, DPR}) {
+    frame(video, {canvasSize, DPR=devicePixelRatio, loop_start=0}) {
+        const dayMode = loop_start ? loop_start % 2 : this.dayMode;
+        const rgbMode = !!(loop_start ? (loop_start/2|0) % 2 : this.rgbMode);
         const tex = this.glsl({}, {data:video, tag:'video'});
-        const blendParams = this.dayMode ? {Clear:1, Blend:'d-s'} : {Clear:0, Blend:'d+s'};
-        const rgbMode = this.rgbMode;
+        canvasSize = canvasSize ?? tex.size;
+        const blendParams = dayMode ? {Clear:1, Blend:'d-s'} : {Clear:0, Blend:'d+s'};
         const lum = this.glsl({tex:tex.edge.linear, ...blendParams, rgbMode,
             VP:`vec2 r = vec2(ViewSize)/vec2(tex_size()); r /= max(r.x, r.y); VPos.xy = XY/r;`, FP:`
             FOut = tex(UV);

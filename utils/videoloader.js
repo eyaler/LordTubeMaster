@@ -47,7 +47,6 @@ export default function load_video(input, video_elem) {
         hash += hash_params
         params += hash_params
         url = `https://player.vimeo.com/video/${vid_id}?autoplay=1&byline=0&dnt=1&loop=1&&muted=1&portrait=0&quality=1080p&title=0${params}`
-
     }
     else if (host && !host.includes('youtu')) {  // Any non YouTube / Vimeo URL
         url = input
