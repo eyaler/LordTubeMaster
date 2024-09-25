@@ -18,7 +18,7 @@ WebGPU ([TensorFlow.js](https://www.tensorflow.org/js), [ONNX Runtime Web](https
 WebGL ([Three.js](https://threejs.org/), [SwissGL](https://google.github.io/swissgl/)), and VanillaJS.
 
 Known issues:
-1. Modnet crashes using Transformers.js v3-alpha on Chromium 129+: https://github.com/xenova/transformers.js/issues/943 (currently reverted to v2 with a significant slowdown)
+1. Modnet crashes using Transformers.js v3-alpha on Chromium 129+: https://github.com/xenova/transformers.js/issues/943, https://issues.chromium.org/issues/368997517 (currently reverted to v2 with a significant slowdown)
 2. Resolution of captured media is doubled for smaller frames: https://github.com/screen-share/element-capture/issues/44
 
 <br>
@@ -26,5 +26,6 @@ Known issues:
 [Demo video](https://github.com/eyaler/LordTubeMaster/assets/4436747/2352969c-889d-478e-b386-8bdf6452a797)
 
 <br>
+High-level architecture and modules:
 
 ![Architecture](media/LordTubeMaster.svg)

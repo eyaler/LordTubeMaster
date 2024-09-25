@@ -16,7 +16,7 @@ const mediapipe_wasm_url = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision
 
 import {AutoModel, AutoProcessor, RawImage, env as transformersEnv} from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js'
 // import {AutoModel, AutoProcessor, RawImage, env as transformersEnv} from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0-alpha.16/dist/transformers.min.js'
-// Note modnet on transformers v3 is 10x faster on chromium 128 but crashed on 129+. See: https://github.com/xenova/transformers.js/issues/943
+// Note modnet on transformers v3 is 10x faster on chromium 128 but crashed on 129+. See: https://github.com/xenova/transformers.js/issues/943, https://issues.chromium.org/issues/368997517
 
 import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.21.0/dist/tf.min.js'
 import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu@4.21.0/dist/tf-backend-webgpu.min.js'
