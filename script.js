@@ -14,9 +14,7 @@ import {
 } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.15/vision_bundle.mjs'
 const mediapipe_wasm_url = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.15/wasm'
 
-import {AutoModel, AutoProcessor, RawImage, env as transformersEnv} from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js'
-// import {AutoModel, AutoProcessor, RawImage, env as transformersEnv} from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0-alpha.16/dist/transformers.min.js'
-// Note modnet on transformers v3 is 10x faster on chromium 128 but crashed on 129+. See: https://github.com/xenova/transformers.js/issues/943, https://issues.chromium.org/issues/368997517
+import {AutoModel, AutoProcessor, RawImage, env as transformersEnv} from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0-alpha.17/dist/transformers.min.js'
 
 import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.21.0/dist/tf.min.js'
 import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu@4.21.0/dist/tf-backend-webgpu.min.js'
@@ -100,7 +98,7 @@ document.addEventListener('keydown', e => {
 function loop_effects() {
     if (!loop_mode || !capture_started)
         return
-    const effects = [...effect.querySelectorAll('option:not([disabled]):not([label="meta" i] > *)')].filter(e => !transformersEnv.version.startsWith('2.') || !e.value.includes('transformers')).map(e => e.value)
+    const effects = [...effect.querySelectorAll('option:not([disabled]):not([label="meta" i] > *)')].map(e => e.value)
     effect.value = effects[(effects.indexOf(effect.value)+(loop_mode == 'random' ? Math.random()*(effects.length-1) + 1 | 0 : 1)) % effects.length]
     setTimeout(loop_effects, loop_secs * 1000)
 }
