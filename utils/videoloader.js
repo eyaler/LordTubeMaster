@@ -32,9 +32,10 @@ export default function load_video(input, video_elem) {
 
     let url = 'about:blank'
     let hash = ''
-    if (host.includes('vimeo') || vid_id.match(/^\d+\/?\w*$/) || vid_id2.match(/^\d+\/?\w*$/)) {  // Vimeo
-        if (!vid_id.match(/^\d+$/))
+    if (host.includes('vimeo') || vid_id.match(/^\d+(\/\w+)?$/) || vid_id2.match(/^\d+(\/\w+)?$/)) {  // Vimeo
+        if (!vid_id.match(/^\d+$/)) {
             vid_id = vid_id2
+        }
         if (vid_id.includes('/')) {
             let secret
             [vid_id, secret] = vid_id.split('/')

@@ -2,58 +2,58 @@ import load_video from '../videoloader.js'
 
 const tests = {
     '': '',
-    'KxGRhd_iWuE': `
-https://www.youtube.com/watch?v=KxGRhd_iWuE
-https://www.youtube-nocookie.com/watch?v=KxGRhd_iWuE
-https://www.youtube.com/embed/KxGRhd_iWuE
-https://www.youtube-nocookie.com/embed/KxGRhd_iWuE
-https://youtu.be/KxGRhd_iWuE
-www.youtube.com/watch?v=KxGRhd_iWuE
-www.youtube-nocookie.com/watch?v=KxGRhd_iWuE
-www.youtube.com/embed/KxGRhd_iWuE
-www.youtube-nocookie.com/embed/KxGRhd_iWuE
-youtu.be/KxGRhd_iWuE
-KxGRhd_iWuE
-?v=KxGRhd_iWuE
-&v=KxGRhd_iWuE
-v=KxGRhd_iWuE
+    '59bH4FhOVkA': `
+https://www.youtube.com/watch?v=59bH4FhOVkA
+https://www.youtube-nocookie.com/watch?v=59bH4FhOVkA
+https://www.youtube.com/embed/59bH4FhOVkA
+https://www.youtube-nocookie.com/embed/59bH4FhOVkA
+https://youtu.be/59bH4FhOVkA
+www.youtube.com/watch?v=59bH4FhOVkA
+www.youtube-nocookie.com/watch?v=59bH4FhOVkA
+www.youtube.com/embed/59bH4FhOVkA
+www.youtube-nocookie.com/embed/59bH4FhOVkA
+youtu.be/59bH4FhOVkA
+59bH4FhOVkA
+?v=59bH4FhOVkA
+&v=59bH4FhOVkA
+v=59bH4FhOVkA
 `,
-    'KxGRhd_iWuE&playlist=KxGRhd_iWuE': `
-https://www.youtube.com/watch?v=KxGRhd_iWuE&playlist=KxGRhd_iWuE
-https://www.youtube.com/watch?playlist=KxGRhd_iWuE&v=KxGRhd_iWuE
-https://www.youtube.com/embed/KxGRhd_iWuE?playlist=KxGRhd_iWuE
-www.youtube.com/watch?v=KxGRhd_iWuE&playlist=KxGRhd_iWuE
-www.youtube.com/watch?playlist=KxGRhd_iWuE&v=KxGRhd_iWuE
-www.youtube.com/embed/KxGRhd_iWuE?playlist=KxGRhd_iWuE
-?v=KxGRhd_iWuE&playlist=KxGRhd_iWuE
-&v=KxGRhd_iWuE&playlist=KxGRhd_iWuE
-v=KxGRhd_iWuE&playlist=KxGRhd_iWuE
-KxGRhd_iWuE&playlist=KxGRhd_iWuE
-?playlist=KxGRhd_iWuE&v=KxGRhd_iWuE
-&playlist=KxGRhd_iWuE&v=KxGRhd_iWuE
-playlist=KxGRhd_iWuE&v=KxGRhd_iWuE
+    '59bH4FhOVkA&playlist=59bH4FhOVkA': `
+https://www.youtube.com/watch?v=59bH4FhOVkA&playlist=59bH4FhOVkA
+https://www.youtube.com/watch?playlist=59bH4FhOVkA&v=59bH4FhOVkA
+https://www.youtube.com/embed/59bH4FhOVkA?playlist=59bH4FhOVkA
+www.youtube.com/watch?v=59bH4FhOVkA&playlist=59bH4FhOVkA
+www.youtube.com/watch?playlist=59bH4FhOVkA&v=59bH4FhOVkA
+www.youtube.com/embed/59bH4FhOVkA?playlist=59bH4FhOVkA
+?v=59bH4FhOVkA&playlist=59bH4FhOVkA
+&v=59bH4FhOVkA&playlist=59bH4FhOVkA
+v=59bH4FhOVkA&playlist=59bH4FhOVkA
+59bH4FhOVkA&playlist=59bH4FhOVkA
+?playlist=59bH4FhOVkA&v=59bH4FhOVkA
+&playlist=59bH4FhOVkA&v=59bH4FhOVkA
+playlist=59bH4FhOVkA&v=59bH4FhOVkA
 `,
-    'playlist=KxGRhd_iWuE': `
-https://www.youtube.com/embed/?playlist=KxGRhd_iWuE
-www.youtube.com/embed/?playlist=KxGRhd_iWuE
-?playlist=KxGRhd_iWuE
-&playlist=KxGRhd_iWuE
-playlist=KxGRhd_iWuE
+    'playlist=59bH4FhOVkA': `
+https://www.youtube.com/embed/?playlist=59bH4FhOVkA
+www.youtube.com/embed/?playlist=59bH4FhOVkA
+?playlist=59bH4FhOVkA
+&playlist=59bH4FhOVkA
+playlist=59bH4FhOVkA
 `,
-    'KxGRhd_iWuE&list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS': `
-https://www.youtube.com/watch?v=KxGRhd_iWuE&list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS
-https://www.youtube.com/watch?list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS&v=KxGRhd_iWuE
-https://www.youtube.com/embed/KxGRhd_iWuE?list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS
-www.youtube.com/watch?v=KxGRhd_iWuE&list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS
-www.youtube.com/watch?list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS&v=KxGRhd_iWuE
-www.youtube.com/embed/KxGRhd_iWuE?list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS
-?v=KxGRhd_iWuE&list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS
-&v=KxGRhd_iWuE&list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS
-v=KxGRhd_iWuE&list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS
-KxGRhd_iWuE&list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS
-?list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS&v=KxGRhd_iWuE
-&list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS&v=KxGRhd_iWuE
-list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS&v=KxGRhd_iWuE
+    '59bH4FhOVkA&list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS': `
+https://www.youtube.com/watch?v=59bH4FhOVkA&list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS
+https://www.youtube.com/watch?list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS&v=59bH4FhOVkA
+https://www.youtube.com/embed/59bH4FhOVkA?list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS
+www.youtube.com/watch?v=59bH4FhOVkA&list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS
+www.youtube.com/watch?list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS&v=59bH4FhOVkA
+www.youtube.com/embed/59bH4FhOVkA?list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS
+?v=59bH4FhOVkA&list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS
+&v=59bH4FhOVkA&list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS
+v=59bH4FhOVkA&list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS
+59bH4FhOVkA&list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS
+?list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS&v=59bH4FhOVkA
+&list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS&v=59bH4FhOVkA
+list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS&v=59bH4FhOVkA
 `,
     'list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS': `
 https://www.youtube.com/embed/?list=PLZV8sKAO3LzbA18GxCub2j_2ZpwJENDAS

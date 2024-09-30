@@ -31,7 +31,7 @@ export default class RuttEtraIzer {
             vertexColors: true,
         })
 
-        canvas.addEventListener('pointerdown', e => {down_x = e.clientX; down_y = e.clientY})
+        canvas.addEventListener('pointerdown', e => {if (!e.button) {down_x = e.clientX; down_y = e.clientY}})
 
         document.addEventListener('pointerup', () => down_x = down_y = null)
 

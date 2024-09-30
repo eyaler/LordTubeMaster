@@ -17,14 +17,16 @@ The code demos usages with Wasm ([MediaPipe](https://ai.google.dev/edge/mediapip
 WebGPU ([TensorFlow.js](https://www.tensorflow.org/js), [ONNX Runtime Web](https://onnxruntime.ai/docs/get-started/with-javascript/web.html), [Transformers.js](https://huggingface.co/docs/transformers.js/index)),
 WebGL ([Three.js](https://threejs.org/), [SwissGL](https://google.github.io/swissgl/)), and VanillaJS.
 
-Known issues:
+#### Known issues:
 1. Resolution of captured media is doubled for smaller frames: https://github.com/screen-share/element-capture/issues/44
 
 <br>
 
+#### Demo Video: 
+
 [Demo video](https://github.com/eyaler/LordTubeMaster/assets/4436747/2352969c-889d-478e-b386-8bdf6452a797)
 
 <br>
-High-level architecture and modules:
 
+#### High-level architecture and modules:
 ![Architecture](media/LordTubeMaster.svg)
