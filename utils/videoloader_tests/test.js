@@ -106,18 +106,32 @@ http://www.dailymotion.com/video/x6ch8i5
 `,
 }
 
-let cnt = 0
+function writeln(msg, color) {
+    const p = document.createElement('p')
+    p.innerHTML = msg
+    if (color)
+        p.style.color = color
+    document.body.appendChild(p)
+}
+
+let pass = 0
+let fail = 0
 
 Object.entries(tests).forEach(([hash, urls]) => {
     urls = urls.split('\n').filter(x => x)
     const dupes = urls.length - new Set(urls).size
     if (dupes)
-        throw new Error(`Found duplicates ${dupes} for ${hash}`)
+        writeln(`Found ${dupes} duplicates for ${hash}`, 'red')
     urls.forEach(url => {
         const result = load_video(url)[0]
-        if (result != hash)
-            throw new Error(`${url} gave ${result} instead of ${hash}`)
-        cnt++
+        if (result != hash) {
+            writeln(`Error: ${url} gave ${result} instead of ${hash}`, 'red')
+            fail++
+        } else
+            pass++
     })
 })
-console.log(`All ${cnt} tests passed`)
+if (fail)
+    writeln(`${fail}/${pass+fail} tests failed.`, 'red')
+if (pass)
+    writeln(`${pass}/${pass+fail} tests passed.`, 'green')
