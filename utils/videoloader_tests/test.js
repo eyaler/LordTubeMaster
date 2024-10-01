@@ -121,7 +121,7 @@ Object.entries(tests).forEach(([hash, urls]) => {
     urls = urls.split('\n').filter(x => x)
     const dupes = urls.length - new Set(urls).size
     if (dupes)
-        writeln(`Found ${dupes} duplicates for ${hash}`, 'red')
+        writeln(`Found ${dupes} duplicate urls in ${hash}`, 'red')
     urls.forEach(url => {
         const result = load_video(url)[0]
         if (result != hash) {
