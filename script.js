@@ -14,7 +14,7 @@ import {
 } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.15/vision_bundle.mjs'
 const mediapipe_wasm_url = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.15/wasm'
 
-import {AutoModel, AutoProcessor, RawImage, env as transformersEnv} from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0-alpha.17/dist/transformers.min.js'
+import {AutoModel, AutoProcessor, RawImage, env as transformersEnv} from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0-alpha.19/dist/transformers.min.js'
 
 import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.21.0/dist/tf.min.js'
 import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu@4.21.0/dist/tf-backend-webgpu.min.js'
