@@ -1,5 +1,5 @@
 export default function load_video(input, video_elem) {
-    input = input.value ?? input
+    input = (input.value ?? input).trim()
     let [vid_id, params, hash_params] = [...input.split(/(?:[?&]|(?=#))([^#]*)/), '', '']
     if (vid_id.includes('=')) {
         if (params)
@@ -51,7 +51,7 @@ export default function load_video(input, video_elem) {
     }
     else if (host && !host.includes('youtu')) {  // Any non YouTube / Vimeo URL
         url = input
-        hash = input.match(/(.*?https:\/\/)?(.*)/).at(-1)
+        hash = input.match(/(https:\/\/)?(.*)/).at(-1)
     } else if (input) {  // YouTube
         let playlist_params = '&playlist=' + vid_id
         if (params.size) {
