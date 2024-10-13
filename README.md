@@ -30,3 +30,7 @@ WebGL ([Three.js](https://threejs.org/), [SwissGL](https://google.github.io/swis
 
 #### High-level architecture and modules:
 ![Architecture](media/LordTubeMaster.svg)
+
+<br>
+
+Exhibited in <a href="https://fubar.space/2024/artist-list/#0105">/'fu:bar/</a> glitch art festival exhibition in 2024.

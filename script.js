@@ -11,10 +11,10 @@ import {
     ImageSegmenter,
     FilesetResolver,
     DrawingUtils
-} from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.15/vision_bundle.mjs'
-const mediapipe_wasm_url = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.15/wasm'
+} from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/vision_bundle.mjs'
+const mediapipe_wasm_url = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm'
 
-import {AutoModel, AutoProcessor, RawImage, env as transformersEnv} from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0-alpha.19/dist/transformers.min.js'
+import {AutoModel, AutoProcessor, RawImage, env as transformersEnv} from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0-alpha.20/dist/transformers.min.js'
 
 import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.21.0/dist/tf.min.js'
 import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu@4.21.0/dist/tf-backend-webgpu.min.js'
@@ -25,7 +25,7 @@ ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/di
 import SwissGL from './libs/swissgl/swissgl.mjs'
 import DotCamera from './models/dotcamera.js'
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.min.js'
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.min.js'
 import RuttEtraIzer from './models/ruttetraizer.js'
 
 function getGPUInfo() {
@@ -74,15 +74,14 @@ video_url.addEventListener('focus', e => {
     e.currentTarget.select()  // Broken in Chrome. See: https://issues.chromium.org/issues/40345011#comment45
 })
 
-let loop_mode, loop_start
+let loop_mode, dotcamera_mode
 effect.addEventListener('change', e => {
     if (e.currentTarget.value)
         capture()
     loop_mode = null
-    loop_start = 0
     if (e.currentTarget.value == 'loop' || e.currentTarget.value == 'random') {
         loop_mode = e.currentTarget.value
-        loop_start = performance.now()
+        dotcamera_mode = 0
         loop_effects()
     }
 })
@@ -98,6 +97,7 @@ document.addEventListener('keydown', e => {
 function loop_effects() {
     if (!loop_mode || !capture_started)
         return
+    // dotcamera_mode += effect.value == 'dotcamera_swissgl'
     const effects = [...effect.querySelectorAll('option:not([disabled]):not([label="meta" i] > *)')].map(e => e.value)
     effect.value = effects[(effects.indexOf(effect.value)+(loop_mode == 'random' ? Math.random()*(effects.length-1) + 1 | 0 : 1)) % effects.length]
     setTimeout(loop_effects, loop_secs * 1000)
@@ -293,7 +293,7 @@ const effect_funcs = {
             canvas.width = gl_canvas.width = W
             canvas.height = gl_canvas.height = H
         }
-        models.dotcamera.frame(videoFrame, {canvasSize: [W, H], DPR: 1.5, loop_start: loop_start})
+        models.dotcamera.frame(videoFrame, {canvasSize: [W, H], DPR: 1.5, random_mode: loop_mode ? dotcamera_mode : 0})
         canvasCtx.drawImage(gl_canvas, 0, 0)
     },
 
@@ -306,7 +306,7 @@ const effect_funcs = {
             canvas.height = gl_canvas.height = H
             renderer.setViewport(0, 0, W, H)
         }
-        models.ruttetra.frame(W, H, rgbx, {scanStep: 7, depth: 100, loop_start: loop_start})
+        models.ruttetra.frame(W, H, rgbx, {scanStep: 7, depth: 100, random_mode: loop_mode})
         canvasCtx.drawImage(gl_canvas, 0, 0)
     },
 
@@ -590,4 +590,6 @@ async function capture() {
     })
     trackProcessor.readable.pipeThrough(transformer).pipeTo(trackGenerator.writable)
     out_video.srcObject = new MediaStream([trackGenerator])
+    if (loop_mode)
+        loop_effects()
 }

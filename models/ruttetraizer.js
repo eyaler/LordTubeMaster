@@ -4,10 +4,10 @@
 const scale_rate = .01
 const min_scale = 1
 const max_scale = 10
-const rot_rate_x = .0003
+const rot_rate_x = .0005
 const rot_rate_y = .0002
-const min_rot = .33
-const max_rot = .66
+const min_rot = .4
+const max_rot = .6
 
 let scale = 2
 let pointer_x = .5
@@ -48,7 +48,7 @@ export default class RuttEtraIzer {
         canvas.addEventListener('wheel', e => scale = Math.max(min_scale, Math.min(scale + e.deltaY*scale_rate, max_scale)), {passive: true})
     }
 
-    frame(W, H, rgbx, {scanStep=7, depth=100, loop_start=0}={}) {
+    frame(W, H, rgbx, {scanStep=7, depth=100, random_mode}={}) {
         const THREE = this.THREE
 
         if (this.lineGroup) {
@@ -72,7 +72,7 @@ export default class RuttEtraIzer {
             geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3))
             this.lineGroup.add(new THREE.Line(geometry, this.material))
         }
-        if (loop_start) {
+        if (random_mode) {
             const rand = Math.random()
             if (rand > .5) {
                 pointer_x += rot_dir_x * rot_rate_x
