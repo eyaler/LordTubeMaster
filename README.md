@@ -24,7 +24,7 @@ WebGL ([Three.js](https://threejs.org/), [SwissGL](https://google.github.io/swis
 
 #### Demo Video: 
 
-[Demo video](https://github.com/eyaler/LordTubeMaster/assets/4436747/2352969c-889d-478e-b386-8bdf6452a797)
+[Demo Video](https://github.com/user-attachments/assets/756dfdf7-a7ca-48b5-b9ff-9a77485f7cf4)
 
 <br>
 
