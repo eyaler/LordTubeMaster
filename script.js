@@ -86,11 +86,15 @@ effect.addEventListener('change', e => {
     }
 })
 document.addEventListener('keydown', e => {
-    if (e.altKey && (e.key == 'ArrowUp' || e.key == 'ArrowDown')) {
+    if (e.altKey && (e.key == 'ArrowUp' || e.key == 'ArrowDown' || e.target != video_url && e.key == 'Enter')) {
         e.preventDefault()
-        const effects = [...effect.querySelectorAll('option:not([disabled])')].map(e => e.value)
-        effect.value = effects[(effects.length+effects.indexOf(effect.value)+(e.key == 'ArrowUp' ? -1 : 1)) % effects.length]
-        effect.dispatchEvent(new Event('change'))
+        if (e.key == 'Enter')
+            get_video(video_url, false)
+        else {
+            const effects = [...effect.querySelectorAll('option:not([disabled])')].map(e => e.value)
+            effect.value = effects[(effects.length+effects.indexOf(effect.value)+(e.key == 'ArrowUp' ? -1 : 1)) % effects.length]
+            effect.dispatchEvent(new Event('change'))
+        }
     }
 })
 
@@ -103,8 +107,8 @@ function loop_effects() {
     setTimeout(loop_effects, loop_secs * 1000)
 }
 
-function get_video(input_elem) {
-    location.hash = load_video(input_elem, orig_video)[0]
+function get_video(input_elem, reload_youtube) {
+    location.hash = load_video(input_elem, orig_video, reload_youtube)[0]
     capture()
 }
 
@@ -590,6 +594,5 @@ async function capture() {
     })
     trackProcessor.readable.pipeThrough(transformer).pipeTo(trackGenerator.writable)
     out_video.srcObject = new MediaStream([trackGenerator])
-    if (loop_mode)
-        loop_effects()
+    loop_effects()
 }

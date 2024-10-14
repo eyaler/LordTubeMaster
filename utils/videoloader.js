@@ -1,4 +1,4 @@
-export default function load_video(input, video_elem) {
+export default function load_video(input, video_elem, reload_youtube=true) {
     input = (input.value ?? input).trim()
     let [vid_id, params, hash_params] = [...input.split(/(?:[?&]|(?=#))([^#]*)/), '', '']
     if (vid_id.includes('=')) {
@@ -66,7 +66,7 @@ export default function load_video(input, video_elem) {
         }
         url = `https://www.youtube-nocookie.com/embed/${vid_id}?autoplay=1&loop=1${playlist_params}&playsinline=1&rel=0${params}&mute=1`
         hash = vid_id + params
-        if (video_elem)
+        if (video_elem && reload_youtube)
             video_elem.onload = () => {video_elem.onload = ''; video_elem.src = url}  // Reload to overcome "This video is unavailable" error on first load of video with playlist parameter. See: https://issuetracker.google.com/issues/249707272
     }
     if (video_elem)
