@@ -314,6 +314,26 @@ const effect_funcs = {
         canvasCtx.drawImage(gl_canvas, 0, 0)
     },
 
+    bayer_dithering: (W, H, rgbx, yuv) => {
+        const bayer_r = 96
+        const threshold = 128
+        const matrix = [[ -0.5   ,  0     , -0.375 ,  0.125  ],
+                        [  0.25  , -0.25  ,  0.375 , -0.125  ],
+                        [ -0.3125,  0.1875, -0.4375,  0.0625 ],
+                        [  0.4375, -0.0625,  0.3125, -0.1875 ]]
+        const bayer_n = matrix.length
+        const downscale = 3
+        for (let y = 0; y < H; y += downscale)
+            for (let x = 0; x < W; x += downscale) {
+                const val = (yuv[x + y*W]-16)*1.164 + bayer_r*matrix[y / downscale % bayer_n][x / downscale % bayer_n] >= threshold ? [237, 230, 205] : [33, 38, 63]
+                for (let j = 0; j < downscale; j++)
+                    for (let i = 0; i < downscale; i++) {
+                        const index4 = ((x+i)+(y+j)*W) * 4
+                        ;[rgbx[index4], rgbx[index4 + 1], rgbx[index4 + 2]] = val
+            }
+        }
+    },
+
     pixel_sorting: (W, H, rgbx, yuv, stride, Voffset, Uoffset) => {
         for (let y = 0; y < H; y++) {
             const yUV = (y >> 1) * stride
@@ -342,23 +362,16 @@ const effect_funcs = {
         }
     },
 
-    bayer_dithering: (W, H, rgbx, yuv) => {
-        const bayer_r = 96
-        const threshold = 128
-        const matrix = [[ -0.5   ,  0     , -0.375 ,  0.125  ],
-                        [  0.25  , -0.25  ,  0.375 , -0.125  ],
-                        [ -0.3125,  0.1875, -0.4375,  0.0625 ],
-                        [  0.4375, -0.0625,  0.3125, -0.1875 ]]
-        const bayer_n = matrix.length
-        const downscale = 3
-        for (let y = 0; y < H; y += downscale)
-            for (let x = 0; x < W; x += downscale) {
-                const val = (yuv[x + y*W]-16)*1.164 + bayer_r*matrix[y / downscale % bayer_n][x / downscale % bayer_n] >= threshold ? [237, 230, 205] : [33, 38, 63]
-                for (let j = 0; j < downscale; j++)
-                    for (let i = 0; i < downscale; i++) {
-                        const index4 = ((x+i)+(y+j)*W) * 4
-                        ;[rgbx[index4], rgbx[index4 + 1], rgbx[index4 + 2]] = val
-            }
+    rgb_split: (W, H, rgbx) => {
+        const shift = devicePixelRatio * 5 | 0
+        for (let y = 0; y < H; y++)
+            for (let x = 0; x < W; x++) {
+                const index4 = (x+y*W) * 4
+                if (x < W - shift*2) {
+                    rgbx[index4] = rgbx[(shift*2+x+y*W) * 4]
+                    if (x < W - shift)
+                        rgbx[index4 + 1] = rgbx[(shift+x+y*W) * 4 + 1]
+                }
         }
     },
 }
