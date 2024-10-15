@@ -363,16 +363,16 @@ const effect_funcs = {
     },
 
     rgb_split: (W, H, rgbx) => {
-        const shift = devicePixelRatio * 5 | 0
+        let shift_gx = devicePixelRatio * 4 | 0
+        let shift_gy = devicePixelRatio * 2 | 0
+        let shift_rx = 2 * shift_gx
+        let shift_ry = 2 * shift_gy
         for (let y = 0; y < H; y++)
             for (let x = 0; x < W; x++) {
                 const index4 = (x+y*W) * 4
-                if (x < W - shift*2) {
-                    rgbx[index4] = rgbx[(shift*2+x+y*W) * 4]
-                    if (x < W - shift)
-                        rgbx[index4 + 1] = rgbx[(shift+x+y*W) * 4 + 1]
-                }
-        }
+                rgbx[index4] = rgbx[(Math.min(x + shift_rx, W - 1)+Math.min(y + shift_ry, H - 1)*W) * 4]
+                rgbx[index4 + 1] = rgbx[(Math.min(x + shift_gx, W - 1)+Math.min(y + shift_gy, H - 1)*W)*4 + 1]
+            }
     },
 }
 
