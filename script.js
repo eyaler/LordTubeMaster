@@ -236,7 +236,7 @@ const effect_funcs = {
                 canvasCtx.lineCap = 'round'
                 const thickness = Math.sqrt((eye2.x-eye1.x)**2 + (eye2.y-eye1.y)**2 + ((eye2.z-eye1.z)*W)**2) / 20
                 canvasCtx.lineWidth = thickness
-                canvasCtx.shadowBlur = thickness
+                canvasCtx.shadowBlur = thickness * 1.5
                 canvasCtx.beginPath()
                 canvasCtx.moveTo(eye1.x, eye1.y)
                 canvasCtx.lineTo(eye1.x + vec_x * W, eye1.y + vec_y * W)
@@ -334,30 +334,35 @@ const effect_funcs = {
         }
     },
 
-    pixel_sorting: (W, H, rgbx, yuv, stride, Voffset, Uoffset) => {
+    pixel_sorting: (W, H, rgbx) => {
         for (let y = 0; y < H; y++) {
-            const yUV = (y >> 1) * stride
             const line = []
             let start
             let end
-            for (let x = 0; x < W; x++) {
-                const xUV = x >> 1
-                const Y = yuv[x + y*W]
-                const U = yuv[Voffset + xUV + yUV]
-                const V = yuv[Uoffset + xUV + yUV]
-                line.push({Y, U, V})
-                if (Y > 16 || U != 128 || V != 128) {
-                    start ??= x
-                    end = x
+            for (let x = 0; x <= W; x++) {
+                let interval
+                if (x < W) {
+                    const index4 = (x+y*W) * 4
+                    const [R, G, B] = [rgbx[index4], rgbx[index4 + 1], rgbx[index4 + 2]]
+                    const L = (Math.min(R, G, B) + Math.max(R, G, B)) / 2
+                    line.push({R, G, B, L})
+                    if (L > 56 && L < 204) {
+                        start ??= x
+                        end = x
+                        interval = true
+                    }
+                }
+                if (!interval && end - start) {
+                    const part = line.splice(start, end - start + 1)
+                    part.sort((a, b) => (a.L - b.L))
+                    line.splice(start, 0, ...part)
+                    start = end = null
                 }
             }
-            const part = line.splice(start, end - start + 1)
-            part.sort((a, b) => (a.Y - b.Y))
-            line.splice(start, 0, ...part)
             for (let x = 0; x < W; x++) {
-                const {Y, U, V} = line[x]
                 const index4 = (x+y*W) * 4
-                ;[rgbx[index4], rgbx[index4 + 1], rgbx[index4 + 2]] = yuv2rgb(Y, U, V)
+                const {R, G, B} = line[x]
+                ;[rgbx[index4], rgbx[index4 + 1], rgbx[index4 + 2]] = [R, G, B]
             }
         }
     },
@@ -555,7 +560,7 @@ async function capture() {
 
             if (effect.value != 'pose_landmarks') {
                 let yuv_data = []
-                if (effect.value.includes('sorting') || effect.value.includes('dithering')) {
+                if (effect.value.includes('dithering')) {
                     const yuv = new Uint8ClampedArray(H * W * 1.5)
                     const layout = await videoFrame.copyTo(yuv)
                     const {stride, offset: Voffset} = layout[1]
