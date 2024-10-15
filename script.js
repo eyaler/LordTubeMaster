@@ -368,8 +368,8 @@ const effect_funcs = {
     },
 
     rgb_split: (W, H, rgbx) => {
-        let shift_gx = devicePixelRatio * 4 | 0
-        let shift_gy = devicePixelRatio * 2 | 0
+        let shift_gx = W / 200 * devicePixelRatio | 0
+        let shift_gy = H / 200 * devicePixelRatio | 0
         let shift_rx = 2 * shift_gx
         let shift_ry = 2 * shift_gy
         for (let y = 0; y < H; y++)

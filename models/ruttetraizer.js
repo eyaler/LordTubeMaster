@@ -73,19 +73,15 @@ export default class RuttEtraIzer {
             this.lineGroup.add(new THREE.Line(geometry, this.material))
         }
         if (random_mode) {
-            const rand = Math.random()
-            if (rand > .5) {
-                pointer_x += rot_dir_x * rot_rate_x
-                if (pointer_x < min_rot || pointer_x > max_rot) {
-                    pointer_x = Math.max(min_rot, Math.min(pointer_x, max_rot))
-                    rot_dir_x *= -1
-                }
-            } else {
-                pointer_y += rot_dir_y * rot_rate_y
-                if (pointer_y < min_rot || pointer_y > max_rot) {
-                    pointer_y = Math.max(min_rot, Math.min(pointer_y, max_rot))
-                    rot_dir_y *= -1
-                }
+            pointer_x += rot_dir_x * rot_rate_x
+            if (pointer_x < min_rot || pointer_x > max_rot) {
+                pointer_x = Math.max(min_rot, Math.min(pointer_x, max_rot))
+                rot_dir_x *= -1
+            }
+            pointer_y += rot_dir_y * rot_rate_y
+            if (pointer_y < min_rot || pointer_y > max_rot) {
+                pointer_y = Math.max(min_rot, Math.min(pointer_y, max_rot))
+                rot_dir_y *= -1
             }
         }
         this.lineGroup.scale.setScalar(scale)
