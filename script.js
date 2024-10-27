@@ -14,9 +14,9 @@ import {
 } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/vision_bundle.mjs'
 const mediapipe_wasm_url = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm'
 
-import {AutoModel, AutoProcessor, RawImage, env as transformersEnv} from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0-alpha.20/dist/transformers.min.js'
+import {AutoModel, AutoProcessor, RawImage, env as transformersEnv} from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.1/dist/transformers.min.js'
 
-import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.21.0/dist/tf.min.js'
+import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js'
 import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu@4.21.0/dist/tf-backend-webgpu.min.js'
 
 import * as ort from 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.webgpu.min.mjs'
@@ -589,7 +589,7 @@ async function capture() {
                         }
                     }
                 }
-                if (effect.value in effect_funcs && !effect.value.includes('recode')) {
+                if (effect.value in effect_funcs && !effect.value.includes('recod')) {
                     await effect_funcs[effect.value](W, H, rgbx, ...yuv_data, models, videoFrame, canvasCtx, gl_engines)
                     if (effect.value.includes('tfjs_webgpu'))
                         await queue.onSubmittedWorkDone()  // This reduces lag. See also: https://github.com/tensorflow/tfjs/issues/6683#issuecomment-1219505611, https://github.com/gpuweb/gpuweb/issues/3762#issuecomment-1400514317

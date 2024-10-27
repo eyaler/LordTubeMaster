@@ -22,13 +22,15 @@ WebGL ([Three.js](https://threejs.org/), [SwissGL](https://google.github.io/swis
 
 <br>
 
-#### Demo Video: 
+#### Demo video:
+
+(Using RTX 3070 Ti laptop @ 1920x1080)
 
 [Demo Video](https://github.com/user-attachments/assets/1e03f147-b229-4d9f-a340-ea8969830e50)
 
 <br>
 
-#### High-level architecture and modules:
+#### High-level architecture and implemented modules:
 ![Architecture](media/LordTubeMaster.svg)
 
 <br>
